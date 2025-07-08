@@ -34,8 +34,7 @@
     },
     "autoload": {
         "psr-4": {
-            "DevWizard\\Filex\\": "src/",
-            "DevWizard\\Filex\\Database\\Factories\\": "database/factories/"
+            "DevWizard\\Filex\\": "src/"
         }
     },
     "autoload-dev": {
