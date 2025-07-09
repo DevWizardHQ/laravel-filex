@@ -28,17 +28,44 @@ You can install the package via composer:
 composer require devwizardhq/laravel-filex
 ```
 
-You can publish the config file with:
+### Quick Installation (Recommended)
+
+Run the install command to publish config and assets:
 
 ```bash
-php artisan vendor:publish --tag="filex-config"
+php artisan filex:install
 ```
 
-Optionally, you can publish the views using:
+This command will:
+- Publish the configuration file to `config/filex.php`
+- Publish CSS and JavaScript assets to `public/vendor/filex/`
+- Check for existing files and prompt for confirmation before overwriting
+- Show you next steps for setup
+
+### Manual Installation
+
+Alternatively, you can publish files manually:
 
 ```bash
+# Publish configuration
+php artisan vendor:publish --tag="filex-config"
+
+# Publish assets
+php artisan vendor:publish --tag="filex-assets"
+
+# Publish views (optional)
 php artisan vendor:publish --tag="filex-views"
 ```
+
+### Asset Integration
+
+Add the assets directive to your Blade layout:
+
+```blade
+@filexAssets
+```
+
+This directive automatically includes all required CSS, JavaScript, and route configurations.
 
 ## Usage
 
@@ -58,14 +85,7 @@ php artisan vendor:publish --tag="filex-views"
 </form>
 ```
 
-### Alternative Directive Usage
-
-```blade
-@fileDropzone(['name' => 'files', 'multiple' => true])
-
-<!-- Include scripts and styles -->
-@fileDropzoneScripts
-```
+**Note:** Make sure to include `@filexAssets` in your layout to load required CSS, JavaScript, and routes.
 
 ### Advanced Usage
 

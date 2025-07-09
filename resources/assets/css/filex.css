@@ -1,0 +1,877 @@
+/**
+ * Laravel Filex - File Upload Component Styles
+ * 
+ * A comprehensive stylesheet for the Laravel Filex file upload component
+ * built on Dropzone.js with modern design and responsive layout.
+ * 
+ * @package DevWizard\Filex
+ * @version 1.0.0
+ */
+
+.filex-uploader-wrapper {
+    margin-bottom: 1rem;
+}
+
+.filex-uploader {
+    border: 2px dashed #007bff;
+    border-radius: 12px;
+    background: #f8f9fa;
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* When files are present, change layout to handle overflow */
+.filex-uploader.dz-started {
+    display: block !important;
+    text-align: left !important;
+    padding: 20px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap !important;
+    min-height: 200px !important;
+}
+
+.filex-uploader.dz-started .dz-message {
+    display: none !important;
+}
+
+.filex-uploader:hover {
+    border-color: #0056b3;
+    background: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.filex-uploader.dz-drag-hover {
+    border-color: #28a745;
+    background: #d4edda;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+}
+
+.filex-uploader .dz-message {
+    font-size: 16px;
+    color: #6c757d;
+    margin: 0;
+    text-align: center;
+}
+
+.filex-uploader .uploader-icon {
+    margin-bottom: 15px;
+}
+
+.filex-uploader .uploader-icon svg {
+    transition: all 0.3s ease;
+}
+
+.filex-uploader:hover .uploader-icon svg path {
+    fill: #0056b3;
+}
+
+.spinning-icon {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.filex-uploader .uploader-text h5 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.upload-status {
+    margin-top: 10px;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: rgba(0, 123, 255, 0.05);
+    border: 1px solid rgba(0, 123, 255, 0.1);
+}
+
+.upload-status .text-success {
+    color: #28a745 !important;
+}
+
+.upload-status .text-danger {
+    color: #dc3545 !important;
+}
+
+.retry-section {
+    text-align: center !important;
+    margin-top: 1rem !important;
+    padding: 0.75rem !important;
+    background: #fff3cd !important;
+    border: 1px solid #ffeaa7 !important;
+    border-radius: 8px !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+}
+
+.retry-section .btn {
+    background: #ffc107 !important;
+    border: 1px solid #e0a800 !important;
+    color: #212529 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 6px !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    text-decoration: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    outline: none !important;
+    font-family: inherit !important;
+}
+
+.retry-section .btn:hover {
+    background: #e0a800 !important;
+    border-color: #d39e00 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.retry-section .btn:active {
+    transform: translateY(0) !important;
+    box-shadow: none !important;
+}
+
+.retry-section .btn:focus {
+    box-shadow: 0 0 0 3px rgba(255, 193, 7, 0.25) !important;
+}
+
+.hidden-file-inputs {
+    display: none;
+}
+
+.filex-uploader.required {
+    border-color: #dc3545;
+}
+
+.filex-uploader.required .dz-message {
+    color: #dc3545;
+}
+
+.filex-uploader.required .uploader-text h5 {
+    color: #dc3545;
+}
+
+/* File type icon container */
+.file-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .filex-uploader {
+        min-height: 100px;
+        padding: 20px 15px;
+    }
+
+    .filex-uploader .dz-message {
+        font-size: 14px;
+    }
+
+    .filex-uploader .uploader-icon {
+        margin-bottom: 10px;
+    }
+
+    .filex-uploader .uploader-icon svg {
+        width: 32px !important;
+        height: 32px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .filex-uploader {
+        padding: 15px 10px;
+        min-height: 80px;
+    }
+
+    .filex-uploader .uploader-text h5 {
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
+
+    .filex-uploader .uploader-text small {
+        font-size: 0.75rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .filex-uploader {
+        background: #2d3748;
+        border-color: #4a5568;
+    }
+
+    .filex-uploader:hover {
+        background: #374151;
+        border-color: #6366f1;
+    }
+
+    .filex-uploader .dz-message {
+        color: #e2e8f0;
+    }
+
+    .filex-uploader .uploader-text h5 {
+        color: #f7fafc;
+    }
+
+    .upload-status {
+        background: rgba(99, 102, 241, 0.1);
+        border-color: rgba(99, 102, 241, 0.2);
+    }
+
+    .retry-section {
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+    }
+
+    .retry-section .btn {
+        background: #f59e0b !important;
+        border-color: #d97706 !important;
+        color: #111827 !important;
+    }
+
+    .retry-section .btn:hover {
+        background: #d97706 !important;
+        border-color: #b45309 !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .filex-uploader-wrapper {
+        display: none;
+    }
+}
+
+/* Dropzone file preview styles - custom to avoid conflicts */
+.filex-uploader .dz-preview {
+    position: relative !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+    margin: 8px !important;
+    min-height: 140px !important;
+    background: #ffffff !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s ease !important;
+    width: 200px !important;
+    max-width: 200px !important;
+    overflow: visible !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 14px !important;
+    line-height: 1.4 !important;
+    color: #495057 !important;
+}
+
+.filex-uploader .dz-preview:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+.filex-uploader .dz-preview.dz-file-preview {
+    background: #f8f9fa !important;
+}
+
+.filex-uploader .dz-preview.dz-image-preview {
+    background: #ffffff !important;
+}
+
+.filex-uploader .dz-preview.dz-success {
+    border-color: #28a745 !important;
+    background: #f8fff9 !important;
+}
+
+/* Ensure success state overrides error state with maximum specificity */
+.filex-uploader .dz-preview.dz-success.dz-error,
+.filex-uploader .dz-preview.dz-error.dz-success,
+.filex-uploader .dz-preview.dz-success {
+    border-color: #28a745 !important;
+    background: #f8fff9 !important;
+}
+
+/* Force success state to override any error styling */
+.filex-uploader .dz-preview.dz-success,
+.filex-uploader .dz-preview.dz-success:hover,
+.filex-uploader .dz-preview.dz-success:focus {
+    border-color: #28a745 !important;
+    background: #f8fff9 !important;
+}
+
+.filex-uploader .dz-preview.dz-error {
+    border-color: #dc3545 !important;
+    background: #fff5f5 !important;
+}
+
+.filex-uploader .dz-preview.dz-processing {
+    border-color: #007bff !important;
+    background: #f0f8ff !important;
+}
+
+/* Remove Dropzone default success/error marks to prevent conflicts */
+.filex-uploader .dz-preview .dz-success-mark:not(.dz-success-mark),
+.filex-uploader .dz-preview .dz-error-mark:not(.dz-error-mark) {
+    display: none !important;
+}
+
+/* Hide any default Dropzone marks */
+.filex-uploader .dz-preview .dz-success-mark[data-dz-success-mark],
+.filex-uploader .dz-preview .dz-error-mark[data-dz-error-mark] {
+    display: none !important;
+}
+
+/* File image/icon container */
+.filex-uploader .dz-image {
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    height: 80px !important;
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #f8f9fa !important;
+    margin-bottom: 12px !important;
+}
+
+.filex-uploader .dz-image img {
+    height: 80% !important;
+    object-fit: cover !important;
+    border-radius: 4px !important;
+}
+
+.filex-uploader .dz-image i {
+    color: #6c757d !important;
+    font-size: 2.5rem !important;
+}
+
+/* File details */
+.filex-uploader .dz-details {
+    position: static !important;
+    opacity: 1 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    text-align: center !important;
+    min-height: 40px !important;
+}
+
+.filex-uploader .dz-filename {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-weight: 500 !important;
+    font-size: 13px !important;
+    color: #495057 !important;
+    line-height: 1.3 !important;
+}
+
+.filex-uploader .dz-filename span {
+    background: none !important;
+    border: none !important;
+    color: inherit !important;
+    font-weight: inherit !important;
+    font-size: inherit !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.filex-uploader .dz-size {
+    margin: 4px 0 0 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    color: #6c757d !important;
+    font-weight: normal !important;
+}
+
+.filex-uploader .dz-size strong {
+    font-weight: 500 !important;
+    color: #495057 !important;
+}
+
+/* Progress bar */
+.filex-uploader .dz-progress {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 3px !important;
+    background: rgba(0, 0, 0, 0.1) !important;
+    border-radius: 0 0 8px 8px !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 1 !important;
+}
+
+.filex-uploader .dz-upload {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 0% !important;
+    background: linear-gradient(90deg, #007bff, #0056b3) !important;
+    transition: width 0.3s ease !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.filex-uploader .dz-success .dz-upload {
+    background: #28a745 !important;
+    width: 100% !important;
+}
+
+.filex-uploader .dz-error .dz-upload {
+    background: #dc3545 !important;
+}
+
+/* Remove button - highly specific to avoid conflicts */
+.filex-uploader .dz-preview .dz-remove {
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
+    width: 24px !important;
+    height: 24px !important;
+    border-radius: 50% !important;
+    background: #dc3545 !important;
+    color: #ffffff !important;
+    border: 2px solid #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    text-decoration: none !important;
+    font-family: Arial, sans-serif !important;
+    line-height: 1 !important;
+    z-index: 10 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.filex-uploader .dz-preview .dz-remove svg {
+    display: none !important; /* Hide any JavaScript-added SVG */
+}
+
+.filex-uploader .dz-preview .dz-remove:hover {
+    background: #c82333 !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.filex-uploader .dz-preview .dz-remove:active {
+    transform: scale(0.95) !important;
+}
+
+.filex-uploader .dz-preview .dz-remove:focus {
+    box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Retry button */
+.filex-uploader .dz-preview .dz-retry {
+    position: absolute !important;
+    bottom: 8px !important;
+    right: 8px !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: #ffc107 !important;
+    color: #212529 !important;
+    border: 2px solid #ffffff !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    text-decoration: none !important;
+    font-family: Arial, sans-serif !important;
+    line-height: 1 !important;
+    z-index: 9 !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.filex-uploader .dz-preview.dz-error .dz-retry {
+    display: flex !important;
+}
+
+.filex-uploader .dz-preview.dz-success .dz-retry {
+    display: none !important;
+}
+
+.filex-uploader .dz-preview .dz-retry:hover {
+    background: #e0a800 !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+.filex-uploader .dz-preview .dz-retry:before {
+    display: none !important;
+}
+
+.filex-uploader .dz-preview .dz-retry svg {
+    width: 14px !important;
+    height: 14px !important;
+    fill: #212529 !important;
+}
+
+/* Error message */
+.filex-uploader .dz-error-message {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: #dc3545 !important;
+    color: #ffffff !important;
+    padding: 4px 8px !important;
+    border-radius: 0 0 8px 8px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+    z-index: 8 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    opacity: 1 !important;
+}
+
+.filex-uploader .dz-error-message:after {
+    content: "" !important;
+    position: absolute !important;
+    bottom: 100% !important;
+    left: 50% !important;
+    margin-left: -5px !important;
+    border: 5px solid transparent !important;
+    border-bottom-color: #dc3545 !important;
+}
+
+/* Success and Error marks - simplified and more robust */
+.filex-uploader .dz-success-mark,
+.filex-uploader .dz-error-mark {
+    position: absolute !important;
+    bottom: -8px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 50% !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 15 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 1 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+}
+
+.filex-uploader .dz-success .dz-success-mark,
+.filex-uploader .dz-preview.dz-success .dz-success-mark {
+    display: flex !important;
+    visibility: visible !important;
+}
+
+.filex-uploader .dz-error .dz-error-mark,
+.filex-uploader .dz-preview.dz-error .dz-error-mark {
+    display: flex !important;
+    visibility: visible !important;
+}
+
+.filex-uploader .dz-success-mark svg,
+.filex-uploader .dz-error-mark svg {
+    width: 16px !important;
+    height: 16px !important;
+}
+
+/* Remove button styling */
+.filex-uploader .dz-remove {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    background: rgba(220, 53, 69, 0.8) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 10 !important;
+    transition: all 0.2s ease !important;
+}
+
+.filex-uploader .dz-remove:hover {
+    background: rgba(220, 53, 69, 1) !important;
+    transform: scale(1.1) !important;
+}
+
+.filex-uploader .dz-remove svg {
+    width: 12px !important;
+    height: 12px !important;
+}
+
+/* Ensure remove buttons only show SVG icons, no text */
+.filex-uploader .dz-remove {
+    text-indent: -9999px !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    text-align: center !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+    position: relative !important;
+}
+
+/* Use CSS ::before to add SVG icon */
+.filex-uploader .dz-remove::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 12px !important;
+    height: 12px !important;
+    background-image: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g stroke-width="0"></g><g stroke-linecap="round" stroke-linejoin="round"></g><g><path d="M9.17065 4C9.58249 2.83481 10.6937 2 11.9999 2C13.3062 2 14.4174 2.83481 14.8292 4" stroke="white" stroke-width="1.5" stroke-linecap="round"></path><path d="M20.5 6H3.49988" stroke="white" stroke-width="1.5" stroke-linecap="round"></path><path d="M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5" stroke="white" stroke-width="1.5" stroke-linecap="round"></path><path d="M9.5 11L10 16" stroke="white" stroke-width="1.5" stroke-linecap="round"></path><path d="M14.5 11L14 16" stroke="white" stroke-width="1.5" stroke-linecap="round"></path></g></svg>') !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    z-index: 10 !important;
+    display: block !important;
+}
+
+/* Hide any SVG elements that might be added by JavaScript */
+.filex-uploader .dz-remove svg {
+    display: none !important;
+}
+
+/* Hide any text nodes within remove button */
+.filex-uploader .dz-remove::after {
+    display: none !important;
+}
+
+/* Responsive preview styles */
+@media (max-width: 768px) {
+    .filex-uploader .dz-preview {
+        width: 150px !important;
+        max-width: 150px !important;
+        margin: 6px !important;
+        padding: 12px !important;
+        min-height: 120px !important;
+    }
+
+    .filex-uploader .dz-image {
+        height: 60px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .filex-uploader .dz-image svg {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    .filex-uploader .dz-filename {
+        font-size: 12px !important;
+    }
+
+    .filex-uploader .dz-size {
+        font-size: 10px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .filex-uploader .dz-preview {
+        width: 120px !important;
+        max-width: 120px !important;
+        margin: 4px !important;
+        padding: 8px !important;
+        min-height: 100px !important;
+    }
+
+    .filex-uploader .dz-image {
+        height: 50px !important;
+        margin-bottom: 6px !important;
+    }
+
+    .filex-uploader .dz-image svg {
+        width: 24px !important;
+        height: 24px !important;
+    }
+
+    .filex-uploader .dz-remove {
+        width: 20px !important;
+        height: 20px !important;
+        top: -6px !important;
+        right: -6px !important;
+        font-size: 10px !important;
+    }
+
+    .filex-uploader .dz-retry {
+        width: 24px !important;
+        height: 24px !important;
+        top: -6px !important;
+        left: -6px !important;
+    }
+
+    .filex-uploader .dz-success-mark,
+    .filex-uploader .dz-error-mark {
+        width: 20px !important;
+        height: 20px !important;
+        bottom: -6px !important;
+    }
+}
+
+/* Dark mode support for previews */
+@media (prefers-color-scheme: dark) {
+    .filex-uploader .dz-preview {
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #f3f4f6 !important;
+    }
+
+    .filex-uploader .dz-preview.dz-success {
+        background: #064e3b !important;
+        border-color: #10b981 !important;
+    }
+
+    .filex-uploader .dz-preview.dz-error {
+        background: #7f1d1d !important;
+        border-color: #ef4444 !important;
+    }
+
+    .filex-uploader .dz-preview.dz-processing {
+        background: #1e3a8a !important;
+        border-color: #3b82f6 !important;
+    }
+
+    .filex-uploader .dz-image {
+        background: #4b5563 !important;
+    }
+
+    .filex-uploader .dz-filename {
+        color: #f3f4f6 !important;
+    }
+
+    .filex-uploader .dz-size {
+        color: #9ca3af !important;
+    }
+
+    .filex-uploader .dz-size strong {
+        color: #e5e7eb !important;
+    }
+}
+
+/* Custom classes for file previews */
+.filex-uploader .filex-preview-existing {
+    border-style: dashed !important;
+}
+
+.filex-uploader .filex-preview-new {
+    border-style: solid !important;
+}
+
+/* Animation for button interactions */
+.filex-uploader .dz-preview .dz-remove {
+    transform: scale(0) !important;
+    animation: filexButtonFadeIn 0.3s ease forwards !important;
+}
+
+.filex-uploader .dz-preview:hover .dz-remove {
+    transform: scale(1) !important;
+}
+
+/* Retry button only shows on error state */
+.filex-uploader .dz-preview .dz-retry {
+    transform: scale(0) !important;
+}
+
+.filex-uploader .dz-preview.dz-error .dz-retry {
+    transform: scale(1) !important;
+    animation: filexButtonFadeIn 0.3s ease forwards !important;
+}
+
+@keyframes filexButtonFadeIn {
+    from {
+        transform: scale(0) !important;
+        opacity: 0 !important;
+    }
+
+    to {
+        transform: scale(1) !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Ensure buttons are always visible on touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .filex-uploader .dz-preview .dz-remove {
+        transform: scale(1) !important;
+        opacity: 1 !important;
+    }
+
+    .filex-uploader .dz-preview.dz-error .dz-retry {
+        transform: scale(1) !important;
+        opacity: 1 !important;
+    }
+}
+
+/* Prevent text selection on buttons */
+.filex-uploader .dz-preview .dz-remove,
+.filex-uploader .dz-preview .dz-retry {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
