@@ -28,20 +28,19 @@ You can install the package via composer:
 composer require devwizardhq/laravel-filex
 ```
 
-### Quick Installation (Recommended)
+### Auto-Publishing (Recommended)
 
-Run the install command to publish config and assets:
+**Laravel Filex now automatically publishes its assets and configuration when the package is installed!** The package will automatically:
+
+-   Publish the configuration file to `config/filex.php`
+-   Publish CSS and JavaScript assets to `public/vendor/filex/`
+-   Only publish files that don't already exist (won't overwrite existing files)
+
+If you want to manually run the installation or need to republish files:
 
 ```bash
 php artisan filex:install
 ```
-
-This command will:
-
--   Publish the configuration file to `config/filex.php`
--   Publish CSS and JavaScript assets to `public/vendor/filex/`
--   Check for existing files and prompt for confirmation before overwriting
--   Show you next steps for setup
 
 ### Manual Installation
 
@@ -56,6 +55,24 @@ php artisan vendor:publish --tag="filex-assets"
 
 # Publish views (optional)
 php artisan vendor:publish --tag="filex-views"
+```
+
+### Quick Installation Command Options
+
+The `php artisan filex:install` command supports several options:
+
+```bash
+# Force overwrite existing files
+php artisan filex:install --force
+
+# Only publish configuration
+php artisan filex:install --only-config
+
+# Only publish assets
+php artisan filex:install --only-assets
+
+# Run silently (no prompts or output)
+php artisan filex:install --auto
 ```
 
 ### Asset Integration

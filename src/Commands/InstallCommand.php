@@ -16,7 +16,8 @@ class InstallCommand extends Command
     protected $signature = 'filex:install 
                             {--force : Force the operation to run when assets already exist}
                             {--only-config : Only publish the configuration file}
-                            {--only-assets : Only publish the asset files}';
+                            {--only-assets : Only publish the asset files}
+                            {--auto : Run automatically without prompts}';
 
     /**
      * The console command description.
@@ -50,7 +51,11 @@ class InstallCommand extends Command
      */
     public function handle()
     {
-        $this->info('🚀 Installing Laravel Filex...');
+        $auto = $this->option('auto');
+        
+        if (!$auto) {
+            $this->info('🚀 Installing Laravel Filex...');
+        }
 
         // Check what needs to be published
         $force = $this->option('force');
@@ -64,11 +69,13 @@ class InstallCommand extends Command
         $existingFiles = $this->checkExistingFiles();
 
         // Show what will be published
-        $this->showPublishPlan($publishConfig, $publishAssets, $existingFiles);
+        if (!$auto) {
+            $this->showPublishPlan($publishConfig, $publishAssets, $existingFiles);
+        }
 
         // Check for existing files and ask for confirmation if needed
         $relevantExistingFiles = $this->getRelevantExistingFiles($existingFiles, $publishConfig, $publishAssets);
-        if (!$force && !empty($relevantExistingFiles) && !$this->confirmOverwrite($relevantExistingFiles)) {
+        if (!$force && !$auto && !empty($relevantExistingFiles) && !$this->confirmOverwrite($relevantExistingFiles)) {
             $this->warn('Installation cancelled.');
             return Command::FAILURE;
         }
@@ -84,7 +91,9 @@ class InstallCommand extends Command
         }
 
         // Show completion message
-        $this->showCompletionMessage($publishConfig, $publishAssets);
+        if (!$auto) {
+            $this->showCompletionMessage($publishConfig, $publishAssets);
+        }
 
         return Command::SUCCESS;
     }
@@ -193,9 +202,14 @@ class InstallCommand extends Command
             }
 
             Artisan::call('vendor:publish', $params);
-            $this->line('✅ Config published');
+            
+            if (!$this->option('auto')) {
+                $this->line('✅ Config published');
+            }
         } catch (\Exception $e) {
-            $this->error("❌ Config failed: {$e->getMessage()}");
+            if (!$this->option('auto')) {
+                $this->error("❌ Config failed: {$e->getMessage()}");
+            }
         }
     }
 
@@ -214,9 +228,14 @@ class InstallCommand extends Command
             }
 
             Artisan::call('vendor:publish', $params);
-            $this->line('✅ Assets published');
+            
+            if (!$this->option('auto')) {
+                $this->line('✅ Assets published');
+            }
         } catch (\Exception $e) {
-            $this->error("❌ Assets failed: {$e->getMessage()}");
+            if (!$this->option('auto')) {
+                $this->error("❌ Assets failed: {$e->getMessage()}");
+            }
         }
     }
 

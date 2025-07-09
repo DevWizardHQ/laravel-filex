@@ -13,7 +13,7 @@ use DevWizard\Filex\Facades\FileRule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Foundation\AliasLoader;
+use Illuminate\Support\Facades\Artisan;
 
 class FilexServiceProvider extends PackageServiceProvider
 {
@@ -67,6 +67,11 @@ class FilexServiceProvider extends PackageServiceProvider
             return '<?php echo view("filex::assets")->render(); ?>';
         });
 
+        // Publish configuration
+        $this->publishes([
+            __DIR__ . '/../config/filex.php' => config_path('filex.php'),
+        ], 'filex-config');
+
         // Publish assets
         $this->publishes([
             __DIR__ . '/../resources/assets/css/dropzone.min.css' => public_path('vendor/filex/css/dropzone.min.css'),
@@ -74,6 +79,11 @@ class FilexServiceProvider extends PackageServiceProvider
             __DIR__ . '/../resources/assets/js/dropzone.min.js' => public_path('vendor/filex/js/dropzone.min.js'),
             __DIR__ . '/../resources/assets/js/filex.js' => public_path('vendor/filex/js/filex.js'),
         ], 'filex-assets');
+
+        // Auto-publish assets and config if running in console and they don't exist
+        if ($this->app->runningInConsole()) {
+            $this->autoPublishAssets();
+        }
 
         // Add cleanup to scheduler if enabled
         if (config('filex.cleanup.enabled', true)) {
@@ -221,5 +231,19 @@ class FilexServiceProvider extends PackageServiceProvider
         Validator::replacer('filex_mimetypes', function ($message, $attribute, $rule, $parameters) {
             return str_replace(':values', implode(', ', $parameters), $message);
         });
+    }
+
+    /**
+     * Auto-publish assets and config if they don't exist
+     */
+    protected function autoPublishAssets(): void
+    {
+        // Check if config file exists
+        if (!file_exists(config_path('filex.php')) || !file_exists(public_path('vendor/filex/css/filex.css'))) {
+            Artisan::call('filex:install', [
+                '--auto' => true,
+                '--force' => false,
+            ]);
+        }
     }
 }

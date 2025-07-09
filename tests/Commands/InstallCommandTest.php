@@ -96,6 +96,22 @@ class InstallCommandTest extends TestCase
             ->assertExitCode(1);
     }
 
+    /** @test */
+    public function it_can_install_in_auto_mode()
+    {
+        $this->artisan('filex:install --auto')
+            ->assertExitCode(0);
+
+        // Check that config file was published
+        $this->assertTrue(File::exists(config_path('filex.php')));
+        
+        // Check that asset files were published
+        $this->assertTrue(File::exists(public_path('vendor/filex/css/dropzone.min.css')));
+        $this->assertTrue(File::exists(public_path('vendor/filex/css/filex.css')));
+        $this->assertTrue(File::exists(public_path('vendor/filex/js/dropzone.min.js')));
+        $this->assertTrue(File::exists(public_path('vendor/filex/js/filex.js')));
+    }
+
     /**
      * Clean up published files
      */
