@@ -7,6 +7,7 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 use DevWizard\Filex\Commands\FilexCommand;
 use DevWizard\Filex\Commands\CleanupTempFilesCommand;
 use DevWizard\Filex\Commands\InstallCommand;
+use DevWizard\Filex\Commands\OptimizeCommand;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Services\FileRuleService;
 use DevWizard\Filex\Facades\FileRule;
@@ -32,6 +33,7 @@ class FilexServiceProvider extends PackageServiceProvider
                 FilexCommand::class,
                 CleanupTempFilesCommand::class,
                 InstallCommand::class,
+                OptimizeCommand::class,
             ])
             ->hasRoute('web');
     }

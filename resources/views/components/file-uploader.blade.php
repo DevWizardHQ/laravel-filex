@@ -24,7 +24,7 @@
     'readonly' => false,
 
     // File upload specific
-    'multiple' => true,
+    'multiple' => false,
     'accept' => null,
     'maxFiles' => null,
     'maxSize' => null,
@@ -36,7 +36,6 @@
     'extensions' => null,
     'dimensions' => null,
     'clientValidation' => true,
-    'serverValidation' => true,
 
     // UI and behavior
     'label' => null,
@@ -64,20 +63,13 @@
     'wrapperClass' => '',
 
     // Advanced options
-    'disk' => null,
-    'path' => 'uploads',
     'value' => [],
-    'locale' => null,
     'debug' => false,
 
     // Image processing
     'thumbnailWidth' => 120,
     'thumbnailHeight' => 120,
     'thumbnailMethod' => 'contain',
-    'resizeQuality' => 0.8,
-    'resizeWidth' => null,
-    'resizeHeight' => null,
-    'resizeMimeType' => null,
 
     // Events (Laravel style naming)
     'onSuccess' => null,
@@ -91,17 +83,11 @@
     'messages' => [],
     'errorMessages' => [],
 
-    // Legacy support (deprecated but maintained for BC)
-    'maxFilesize' => null,
-    'acceptedFiles' => null,
-    'targetDirectory' => null,
-    'dictDefaultMessage' => null,
     'dictFileTooBig' => null,
     'dictInvalidFileType' => null,
     'dictResponseError' => null,
     'dictMaxFilesExceeded' => null,
     'dictRemoveFile' => null,
-    'customErrorMessages' => [],
 ])
 
 @php
@@ -110,9 +96,7 @@
     $hiddenInputName = $multiple ? $name . '[]' : $name;
 
     // Handle legacy prop names for backward compatibility
-    $maxSize = $maxSize ?? ($maxFilesize ?? config('filex.max_file_size', 10));
-    $accept = $accept ?? $acceptedFiles;
-    $path = $path ?? ($targetDirectory ?? 'uploads');
+    $maxSize = $maxSize ?? config('filex.max_file_size', 10);
     $autoProcess = $autoProcess ?? ($autoProcessQueue ?? true);
 
     // Process value prop - can be string, array, or null
@@ -130,7 +114,6 @@
     $retries = $retries ?? config('filex.chunk.max_retries', 3);
     $timeout = $timeout ?? config('filex.chunk.timeout', 30000);
     $parallelUploads = $parallelUploads ?? config('filex.performance.parallel_uploads', 2);
-    $disk = $disk ?? config('filex.default_disk', 'public');
 
     // Process validation rules and build frontend validation config
     $frontendValidation = [
@@ -194,9 +177,8 @@
     }
 
     // Get localized messages
-    $locale = $locale ?? app()->getLocale();
     $defaultMessages = [
-        'dictDefaultMessage' => $placeholder ?? ($dictDefaultMessage ?? __('Drop files here or click to upload')),
+        'dictDefaultMessage' => $placeholder ?? __('Drop files here or click to upload'),
         'dictFileTooBig' => $dictFileTooBig ?? __('File is too big (:filesize MB). Max filesize: :maxFilesize MB.'),
         'dictInvalidFileType' => $dictInvalidFileType ?? __('You cannot upload files of this type.'),
         'dictResponseError' => $dictResponseError ?? __('Server responded with :statusCode code.'),
@@ -205,7 +187,7 @@
     ];
 
     // Merge custom messages (new Laravel convention)
-    $allMessages = array_merge($defaultMessages, $messages, $customErrorMessages ?? []);
+    $allMessages = array_merge($defaultMessages, $messages, $errorMessages ?? []);
 
     // Build JavaScript config object
     $jsConfig = [
@@ -225,18 +207,12 @@
         'chunkSize' => $chunkSize,
         'retries' => $retries,
         'timeout' => $timeout,
-        'disk' => $disk,
-        'path' => $path,
         'validation' => $frontendValidation,
-        'serverValidation' => $serverValidation,
         'messages' => $allMessages,
         'debug' => $debug,
         'thumbnailWidth' => $thumbnailWidth,
         'thumbnailHeight' => $thumbnailHeight,
         'thumbnailMethod' => $thumbnailMethod,
-        'resizeQuality' => $resizeQuality,
-        'resizeWidth' => $resizeWidth,
-        'resizeHeight' => $resizeHeight,
         'events' => [
             'onSuccess' => $onSuccess,
             'onError' => $onError,
@@ -267,8 +243,7 @@
         style="{{ $style }}" data-component-id="{{ $componentId }}" data-config="{{ json_encode($jsConfig) }}"
         data-max-filesize="{{ $maxSize }}" data-accepted-files="{{ $accept }}"
         data-max-files="{{ $maxFiles }}" data-multiple="{{ $multiple ? 'true' : 'false' }}"
-        data-name="{{ $name }}" data-disk="{{ $disk }}" data-target-directory="{{ $path }}"
-        data-validation-enabled="{{ $clientValidation ? 'true' : 'false' }}"
+        data-name="{{ $name }}" data-validation-enabled="{{ $clientValidation ? 'true' : 'false' }}"
         data-frontend-rules="{{ json_encode($frontendValidation['rules']) }}">
 
         <div class="dz-message" data-dz-message>

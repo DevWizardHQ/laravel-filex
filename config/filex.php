@@ -4,30 +4,6 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | File Upload Configuration
-    |--------------------------------------------------------------------------
-    |
-    | This file contains the configuration options for the file upload
-    | component including validation rules, storage settings, and cleanup.
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | Route Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configure the route settings for the file upload endpoints.
-    |
-    */
-    'routes' => [
-        'prefix' => env('FILEX_ROUTE_PREFIX', 'filex'),
-        'domain' => env('FILEX_ROUTE_DOMAIN', null),
-        'middleware' => env('FILEX_ROUTE_MIDDLEWARE', []),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Default Storage Disk
     |--------------------------------------------------------------------------
     |
@@ -35,7 +11,7 @@ return [
     | moved from the temporary location.
     |
     */
-    'default_disk' => env('FILEX_DISK', 'public'),
+    'default_disk' => env('FILEX_DISK', config('filesystems.default', 'public')),
 
     /*
     |--------------------------------------------------------------------------
@@ -255,6 +231,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Route Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the route settings for the file upload endpoints.
+    |
+    */
+    'routes' => [
+        'prefix' => env('FILEX_ROUTE_PREFIX', 'filex'),
+        'domain' => env('FILEX_ROUTE_DOMAIN', null),
+        'middleware' => env('FILEX_ROUTE_MIDDLEWARE', []),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cleanup Schedule
     |--------------------------------------------------------------------------
     |
@@ -281,5 +271,38 @@ return [
         'chunk_threshold' => env('FILEX_CHUNK_THRESHOLD', 50 * 1024 * 1024), // 50MB
         'defer_validation' => env('FILEX_DEFER_VALIDATION', true),
         'batch_size' => env('FILEX_BATCH_SIZE', 5), // Number of files to process in batch
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Advanced Performance Optimizations
+    |--------------------------------------------------------------------------
+    |
+    | Additional performance settings for large-scale applications.
+    |
+    */
+    'optimization' => [
+        'enable_caching' => env('FILEX_ENABLE_CACHING', true),
+        'cache_ttl' => env('FILEX_CACHE_TTL', 3600), // 1 hour
+        'enable_compression' => env('FILEX_ENABLE_COMPRESSION', true),
+        'compression_level' => env('FILEX_COMPRESSION_LEVEL', 6),
+        'max_concurrent_uploads' => env('FILEX_MAX_CONCURRENT', 10),
+        'database_optimization' => env('FILEX_DB_OPTIMIZATION', true),
+        'lazy_loading' => env('FILEX_LAZY_LOADING', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monitoring and Debugging
+    |--------------------------------------------------------------------------
+    |
+    | Settings for monitoring performance and debugging issues.
+    |
+    */
+    'monitoring' => [
+        'enable_metrics' => env('FILEX_ENABLE_METRICS', false),
+        'log_performance' => env('FILEX_LOG_PERFORMANCE', false),
+        'max_log_entries' => env('FILEX_MAX_LOG_ENTRIES', 1000),
+        'enable_profiling' => env('FILEX_ENABLE_PROFILING', false),
     ],
 ];

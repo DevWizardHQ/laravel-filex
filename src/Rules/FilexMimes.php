@@ -55,14 +55,18 @@ class FilexMimes implements ValidationRule
 
     protected function detectRealMimeType(string $filePath): string
     {
+        static $finfo = null;
+        
         if (!file_exists($filePath)) {
             return 'application/octet-stream';
         }
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $filePath);
-        finfo_close($finfo);
+        // Reuse finfo resource
+        if ($finfo === null) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        }
 
+        $mimeType = finfo_file($finfo, $filePath);
         return $mimeType ?: 'application/octet-stream';
     }
 

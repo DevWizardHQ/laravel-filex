@@ -12,16 +12,58 @@ use Carbon\Carbon;
 class FilexService
 {
     /**
-     * Generate a unique filename
+     * Static cache for configuration values
+     */
+    private static array $configCache = [];
+    
+    /**
+     * Static cache for allowed extensions
+     */
+    private static ?array $allowedExtensions = null;
+    
+    /**
+     * Static cache for allowed MIME types
+     */
+    private static ?array $allowedMimeTypes = null;
+    /**
+     * Generate a unique filename with better performance
      */
     public function generateFileName(string $originalName): string
     {
         $extension = pathinfo($originalName, PATHINFO_EXTENSION);
         $name = pathinfo($originalName, PATHINFO_FILENAME);
-        $timestamp = now()->format('YmdHis');
-        $random = Str::random(8);
         
-        return Str::slug($name) . '_' . $timestamp . '_' . $random . '.' . $extension;
+        // Use more efficient random generation
+        $timestamp = now()->format('YmdHis');
+        $random = bin2hex(random_bytes(4)); // More efficient than Str::random(8)
+        
+        // Use faster slug generation for performance
+        $slugName = $this->fastSlug($name);
+        
+        return $slugName . '_' . $timestamp . '_' . $random . '.' . $extension;
+    }
+    
+    /**
+     * Faster slug generation without regex
+     */
+    private function fastSlug(string $name): string
+    {
+        // Basic slug generation without heavy regex operations
+        $slug = strtolower($name);
+        $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+        return trim($slug, '-');
+    }
+    
+    /**
+     * Cached configuration getter
+     */
+    private function getCachedConfig(string $key, $default = null)
+    {
+        if (!isset(self::$configCache[$key])) {
+            self::$configCache[$key] = config($key, $default);
+        }
+        
+        return self::$configCache[$key];
     }
 
     /**
@@ -279,21 +321,31 @@ class FilexService
     }
 
     /**
-     * Validate file extension against allowed types
+     * Validate file extension against allowed types with caching
      */
     public function allowsExtension(string $extension): bool
     {
-        $allowedExtensions = config('filex.allowed_extensions', []);
-        return in_array(strtolower($extension), $allowedExtensions);
+        if (self::$allowedExtensions === null) {
+            self::$allowedExtensions = array_flip(
+                $this->getCachedConfig('filex.allowed_extensions', [])
+            );
+        }
+        
+        return isset(self::$allowedExtensions[strtolower($extension)]);
     }
 
     /**
-     * Validate MIME type against allowed types
+     * Validate MIME type against allowed types with caching
      */
     public function allowsMimeType(string $mimeType): bool
     {
-        $allowedMimeTypes = config('filex.allowed_mime_types', []);
-        return in_array($mimeType, $allowedMimeTypes);
+        if (self::$allowedMimeTypes === null) {
+            self::$allowedMimeTypes = array_flip(
+                $this->getCachedConfig('filex.allowed_mime_types', [])
+            );
+        }
+        
+        return isset(self::$allowedMimeTypes[$mimeType]);
     }
 
     /**
@@ -1096,5 +1148,118 @@ class FilexService
         $output .= '</script>' . "\n";
 
         return $output;
+    }
+
+    /**
+     * Optimized bulk file move with batching and performance monitoring
+     */
+    public function moveFilesBulk(array $tempPaths, string $targetDirectory, ?string $disk = null): array
+    {
+        PerformanceMonitor::startTimer('bulk_file_move');
+        PerformanceMonitor::checkMemoryUsage('Before bulk file move');
+        
+        $disk = $disk ?? $this->getCachedConfig('filex.default_disk', 'public');
+        $batchSize = $this->getCachedConfig('filex.performance.batch_size', 5);
+        $tempDisk = $this->getTempDisk();
+        $targetDisk = Storage::disk($disk);
+        $results = [];
+
+        // Pre-validate all paths for better error handling
+        $validPaths = $this->preValidatePaths($tempPaths, $tempDisk);
+        
+        if (empty($validPaths)) {
+            PerformanceMonitor::endTimer('bulk_file_move', ['result' => 'no_valid_paths']);
+            return $results;
+        }
+
+        // Ensure target directory exists once
+        $targetDir = trim($targetDirectory, '/');
+        if (!$targetDisk->exists($targetDir)) {
+            $targetDisk->makeDirectory($targetDir);
+        }
+
+        // Process files in batches for better performance
+        $batches = array_chunk($validPaths, $batchSize);
+        
+        foreach ($batches as $batchIndex => $batch) {
+            PerformanceMonitor::startTimer("batch_process_{$batchIndex}");
+            $batchResults = $this->processMoveFileBatch($batch, $targetDirectory, $tempDisk, $targetDisk);
+            $results = array_merge($results, $batchResults);
+            PerformanceMonitor::endTimer("batch_process_{$batchIndex}", [
+                'batch_size' => count($batch),
+                'successful' => count(array_filter($batchResults, fn($r) => $r['success']))
+            ]);
+        }
+
+        PerformanceMonitor::checkMemoryUsage('After bulk file move');
+        PerformanceMonitor::endTimer('bulk_file_move', [
+            'total_files' => count($tempPaths),
+            'valid_files' => count($validPaths),
+            'batches' => count($batches),
+            'successful' => count(array_filter($results, fn($r) => $r['success']))
+        ]);
+
+        return $results;
+    }
+    
+    /**
+     * Pre-validate temp paths for bulk operations
+     */
+    private function preValidatePaths(array $tempPaths, $tempDisk): array
+    {
+        $validPaths = [];
+        
+        foreach ($tempPaths as $tempPath) {
+            if (str_starts_with($tempPath, 'temp/') && $tempDisk->exists($tempPath)) {
+                $validPaths[] = $tempPath;
+            }
+        }
+        
+        return $validPaths;
+    }
+    
+    /**
+     * Process a batch of file moves
+     */
+    private function processMoveFileBatch(array $batch, string $targetDirectory, $tempDisk, $targetDisk): array
+    {
+        $results = [];
+        
+        foreach ($batch as $tempPath) {
+            try {
+                $metadata = $this->getTempMeta($tempPath);
+                $originalName = $metadata['original_name'] ?? basename($tempPath);
+                
+                // Generate final filename
+                $finalFileName = $this->generateFileName($originalName);
+                $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
+
+                // Use existing copyStream method for consistency
+                $moved = $this->copyStream($tempDisk, $tempPath, $targetDisk, $finalPath);
+
+                if ($moved) {
+                    // Clean up temp file
+                    $this->deleteTemp($tempPath);
+                    
+                    $results[] = [
+                        'success' => true,
+                        'tempPath' => $tempPath,
+                        'finalPath' => $finalPath,
+                        'metadata' => $metadata
+                    ];
+                } else {
+                    $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
+                }
+
+            } catch (\Exception $e) {
+                Log::error('Failed to move temp file in batch', [
+                    'temp_path' => $tempPath,
+                    'error' => $e->getMessage()
+                ]);
+                $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => $e->getMessage()];
+            }
+        }
+        
+        return $results;
     }
 }

@@ -113,14 +113,18 @@ class ValidFileUpload implements ValidationRule
      */
     protected function detectRealMimeType(string $filePath): string
     {
+        static $finfo = null;
+        
         if (!file_exists($filePath)) {
             return 'application/octet-stream';
         }
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $filePath);
-        finfo_close($finfo);
+        // Reuse finfo resource to improve performance
+        if ($finfo === null) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        }
 
+        $mimeType = finfo_file($finfo, $filePath);
         return $mimeType ?: 'application/octet-stream';
     }
 
@@ -129,8 +133,40 @@ class ValidFileUpload implements ValidationRule
      */
     protected function validateFileSignature(string $filePath, string $extension): bool
     {
-        if (!file_exists($filePath) || !is_readable($filePath)) {
+        static $signatures = null;
+        
+        if (!is_readable($filePath)) {
             return false;
+        }
+
+        // Initialize signatures array once
+        if ($signatures === null) {
+            $signatures = [
+                'jpg' => ["\xFF\xD8\xFF", "\xFF\xD8\xFF\xE0", "\xFF\xD8\xFF\xE1"],
+                'jpeg' => ["\xFF\xD8\xFF", "\xFF\xD8\xFF\xE0", "\xFF\xD8\xFF\xE1"],
+                'png' => ["\x89PNG\r\n\x1A\n"],
+                'gif' => ["GIF87a", "GIF89a"],
+                'webp' => ["RIFF", "WEBP"],
+                'bmp' => ["BM"],
+                'ico' => ["\x00\x00\x01\x00"],
+                'pdf' => ["%PDF-"],
+                'docx' => ["PK\x03\x04"], 'xlsx' => ["PK\x03\x04"], 'pptx' => ["PK\x03\x04"],
+                'doc' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+                'xls' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+                'rtf' => ["{\\rtf"],
+                'zip' => ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"],
+                'rar' => ["Rar!\x1A\x07\x00", "Rar!\x1A\x07\x01\x00"],
+                '7z' => ["7z\xBC\xAF\x27\x1C"],
+                'tar' => ["ustar\x00\x30\x30", "ustar\x20\x20\x00"],
+                'gz' => ["\x1F\x8B"],
+                'mp3' => ["ID3", "\xFF\xFB", "\xFF\xF3", "\xFF\xF2"],
+                'wav' => ["RIFF", "WAVE"],
+                'flac' => ["fLaC"], 'ogg' => ["OggS"],
+                'mp4' => ["\x00\x00\x00\x18ftypmp4", "\x00\x00\x00\x20ftypmp4"],
+                'avi' => ["RIFF", "AVI "],
+                'mov' => ["\x00\x00\x00\x14ftypqt"],
+                'mkv' => ["\x1A\x45\xDF\xA3"],
+            ];
         }
 
         $handle = fopen($filePath, 'rb');
@@ -138,7 +174,7 @@ class ValidFileUpload implements ValidationRule
             return false;
         }
 
-        $header = fread($handle, 32); // Read first 32 bytes
+        $header = fread($handle, 32);
         fclose($handle);
 
         if ($header === false) {
@@ -153,65 +189,39 @@ class ValidFileUpload implements ValidationRule
      */
     protected function checkFileSignature(string $header, string $extension): bool
     {
-        $signatures = [
-            // Images
-            'jpg' => [
-                "\xFF\xD8\xFF", // JPEG
-                "\xFF\xD8\xFF\xE0", // JPEG/JFIF
-                "\xFF\xD8\xFF\xE1", // JPEG/Exif
-            ],
-            'jpeg' => [
-                "\xFF\xD8\xFF",
-                "\xFF\xD8\xFF\xE0",
-                "\xFF\xD8\xFF\xE1",
-            ],
-            'png' => ["\x89PNG\r\n\x1A\n"],
-            'gif' => ["GIF87a", "GIF89a"],
-            'webp' => ["RIFF", "WEBP"],
-            'bmp' => ["BM"],
-            'ico' => ["\x00\x00\x01\x00"],
-
-            // Documents
-            'pdf' => ["%PDF-"],
-            'docx' => ["PK\x03\x04"], // ZIP-based format
-            'xlsx' => ["PK\x03\x04"], // ZIP-based format
-            'pptx' => ["PK\x03\x04"], // ZIP-based format
-            'doc' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"], // OLE format
-            'xls' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"], // OLE format
-            'rtf' => ["{\\rtf"],
-
-            // Archives
-            'zip' => ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"],
-            'rar' => ["Rar!\x1A\x07\x00", "Rar!\x1A\x07\x01\x00"],
-            '7z' => ["7z\xBC\xAF\x27\x1C"],
-            'tar' => ["ustar\x00\x30\x30", "ustar\x20\x20\x00"],
-            'gz' => ["\x1F\x8B"],
-
-            // Audio
-            'mp3' => ["ID3", "\xFF\xFB", "\xFF\xF3", "\xFF\xF2"],
-            'wav' => ["RIFF", "WAVE"],
-            'flac' => ["fLaC"],
-            'ogg' => ["OggS"],
-
-            // Video
-            'mp4' => ["\x00\x00\x00\x18ftypmp4", "\x00\x00\x00\x20ftypmp4"],
-            'avi' => ["RIFF", "AVI "],
-            'mov' => ["\x00\x00\x00\x14ftypqt"],
-            'mkv' => ["\x1A\x45\xDF\xA3"],
-
-            // Text
-            'txt' => [], // No specific signature
-            'csv' => [], // No specific signature
-            'json' => [], // No specific signature
-            'xml' => ["<?xml"],
-            'html' => ["<!DOCTYPE", "<html", "<HTML"],
-            'css' => [], // No specific signature
-            'js' => [], // No specific signature
-        ];
+        static $signatures = null;
+        
+        if ($signatures === null) {
+            $signatures = [
+                'jpg' => ["\xFF\xD8\xFF", "\xFF\xD8\xFF\xE0", "\xFF\xD8\xFF\xE1"],
+                'jpeg' => ["\xFF\xD8\xFF", "\xFF\xD8\xFF\xE0", "\xFF\xD8\xFF\xE1"],
+                'png' => ["\x89PNG\r\n\x1A\n"],
+                'gif' => ["GIF87a", "GIF89a"],
+                'webp' => ["RIFF", "WEBP"],
+                'bmp' => ["BM"],
+                'ico' => ["\x00\x00\x01\x00"],
+                'pdf' => ["%PDF-"],
+                'docx' => ["PK\x03\x04"], 'xlsx' => ["PK\x03\x04"], 'pptx' => ["PK\x03\x04"],
+                'doc' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+                'xls' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
+                'rtf' => ["{\\rtf"],
+                'zip' => ["PK\x03\x04", "PK\x05\x06", "PK\x07\x08"],
+                'rar' => ["Rar!\x1A\x07\x00", "Rar!\x1A\x07\x01\x00"],
+                '7z' => ["7z\xBC\xAF\x27\x1C"],
+                'tar' => ["ustar\x00\x30\x30", "ustar\x20\x20\x00"],
+                'gz' => ["\x1F\x8B"],
+                'mp3' => ["ID3", "\xFF\xFB", "\xFF\xF3", "\xFF\xF2"],
+                'wav' => ["RIFF", "WAVE"],
+                'flac' => ["fLaC"], 'ogg' => ["OggS"],
+                'mp4' => ["\x00\x00\x00\x18ftypmp4", "\x00\x00\x00\x20ftypmp4"],
+                'avi' => ["RIFF", "AVI "],
+                'mov' => ["\x00\x00\x00\x14ftypqt"],
+                'mkv' => ["\x1A\x45\xDF\xA3"],
+            ];
+        }
 
         if (!isset($signatures[$extension])) {
-            // If no signature is defined, allow it (for text files, etc.)
-            return true;
+            return true; // No signature check for this extension
         }
 
         foreach ($signatures[$extension] as $signature) {

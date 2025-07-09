@@ -13,6 +13,16 @@ use Illuminate\Support\Facades\Validator;
 class FilexController extends Controller
 {
     protected $filexService;
+    
+    /**
+     * Static cache for performance settings
+     */
+    private static bool $performanceApplied = false;
+    
+    /**
+     * Cache for upload limits
+     */
+    private static ?array $uploadLimits = null;
 
     public function __construct(FilexService $filexService)
     {
@@ -20,11 +30,17 @@ class FilexController extends Controller
     }
 
     /**
-     * Get the temporary storage disk
+     * Get the temporary storage disk with caching
      */
     protected function getTempDisk()
     {
-        return Storage::disk(config('filex.temp_disk', 'local'));
+        static $tempDisk = null;
+        
+        if ($tempDisk === null) {
+            $tempDisk = Storage::disk(config('filex.temp_disk', 'local'));
+        }
+        
+        return $tempDisk;
     }
 
     /**
@@ -33,69 +49,23 @@ class FilexController extends Controller
     public function uploadTemp(Request $request): JsonResponse
     {
         try {
-            // Apply performance settings as early as possible
-            $memoryLimit = config('filex.performance.memory_limit', '512M');
-            $timeLimit = config('filex.performance.time_limit', 600);
-            
-            ini_set('memory_limit', $memoryLimit);
-            set_time_limit($timeLimit);
-            
-            // Force garbage collection to free up memory
-            if (function_exists('gc_collect_cycles')) {
-                gc_collect_cycles();
-            }
+            $this->applyPerformanceSettings();
 
-            // Get effective upload limits
-            $limits = $this->getEffectiveUploadLimits();
-            $maxFileSizeKB = round($limits['effective_limit'] / 1024); // Convert to KB for Laravel validation
-            
-            $validator = Validator::make($request->all(), [
-                'file' => 'required|file|max:' . $maxFileSizeKB,
-                'dzuuid' => 'sometimes|string',
-                'dzchunkindex' => 'sometimes|integer',
-                'dztotalchunkcount' => 'sometimes|integer',
-                'dzchunksize' => 'sometimes|integer',
-                'dztotalfilesize' => 'sometimes|integer',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
+            // Basic validation first
+            $basicValidation = $this->validateBasicUpload($request);
+            if (!$basicValidation['valid']) {
+                return $this->errorResponse($basicValidation['message'], 422);
             }
 
             $file = $request->file('file');
             $isChunked = $request->has('dzuuid');
 
-            if ($isChunked) {
-                return $this->handleChunkedUpload($request, $file);
-            } else {
-                return $this->handleSingleUpload($request, $file);
-            }
+            return $isChunked 
+                ? $this->handleChunkedUpload($request, $file)
+                : $this->handleSingleUploadOptimized($request, $file);
 
         } catch (\Exception $e) {
-            // Log detailed error information for debugging
-            Log::error('File upload error: ' . $e->getMessage(), [
-                'file' => $request->hasFile('file') ? $request->file('file')->getClientOriginalName() : 'unknown',
-                'file_size' => $request->hasFile('file') ? $request->file('file')->getSize() : null,
-                'user_id' => Auth::check() ? Auth::id() : null,
-                'request_data' => $request->except(['file']),
-                'memory_usage' => memory_get_peak_usage(true),
-                'memory_limit' => ini_get('memory_limit'),
-                'upload_limits' => $this->getEffectiveUploadLimits(),
-                'stack_trace' => $e->getTraceAsString()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Upload failed: ' . $e->getMessage(),
-                'debug' => config('app.debug') ? [
-                    'memory_usage' => memory_get_peak_usage(true),
-                    'memory_limit' => ini_get('memory_limit'),
-                ] : null
-            ], 500);
+            return $this->handleUploadError($e, $request);
         }
     }
 
@@ -202,42 +172,7 @@ class FilexController extends Controller
      */
     protected function handleSingleUpload(Request $request, $file): JsonResponse
     {
-        $originalFileName = $file->getClientOriginalName();
-        $fileName = $this->filexService->generateFileName($originalFileName);
-        
-        // Store file using streaming to avoid memory issues
-        $tempPath = $this->filexService->storeStream(
-            $file, 
-            'temp', 
-            config('filex.temp_disk', 'local'),
-            $fileName
-        );
-
-        // Validate uploaded file
-        $validation = $this->filexService->validateTemp($tempPath, $originalFileName);
-        if (!$validation['valid']) {
-            $this->getTempDisk()->delete($tempPath);
-            return response()->json([
-                'success' => false,
-                'message' => $validation['message']
-            ], 422);
-        }
-
-        // Mark file with metadata
-        $this->filexService->markTemp($tempPath, [
-            'original_name' => $originalFileName,
-            'uploaded_at' => now(),
-            'user_id' => Auth::check() ? Auth::id() : null,
-            'session_id' => session()->getId(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'tempPath' => $tempPath,
-            'originalName' => $originalFileName,
-            'size' => $file->getSize(),
-            'message' => 'File uploaded successfully'
-        ]);
+        return $this->handleSingleUploadOptimized($request, $file);
     }
 
     /**
@@ -378,11 +313,15 @@ class FilexController extends Controller
     }
 
     /**
-     * Get PHP upload limits and ensure our config doesn't exceed them
+     * Get PHP upload limits with caching
      */
     protected function getEffectiveUploadLimits(): array
     {
-        // Convert PHP ini values to bytes
+        if (self::$uploadLimits !== null) {
+            return self::$uploadLimits;
+        }
+        
+        // Convert PHP ini values to bytes with caching
         $uploadMaxFilesize = $this->convertToBytes(ini_get('upload_max_filesize'));
         $postMaxSize = $this->convertToBytes(ini_get('post_max_size'));
         $memoryLimit = $this->convertToBytes(ini_get('memory_limit'));
@@ -393,7 +332,7 @@ class FilexController extends Controller
         // Use the most restrictive limit
         $effectiveLimit = min($uploadMaxFilesize, $postMaxSize, $ourMaxSize);
         
-        return [
+        self::$uploadLimits = [
             'upload_max_filesize' => $uploadMaxFilesize,
             'post_max_size' => $postMaxSize,
             'memory_limit' => $memoryLimit,
@@ -401,6 +340,8 @@ class FilexController extends Controller
             'effective_limit' => $effectiveLimit,
             'effective_limit_mb' => round($effectiveLimit / (1024 * 1024), 2)
         ];
+        
+        return self::$uploadLimits;
     }
     
     /**
@@ -496,29 +437,41 @@ class FilexController extends Controller
     }
 
     /**
-     * Apply performance settings with caching
+     * Apply performance settings with caching and optimization
      */
     protected function applyPerformanceSettings(): void
     {
-        static $settingsApplied = false;
-        
-        if (!$settingsApplied) {
-            $memoryLimit = config('filex.performance.memory_limit', '1G');
-            $timeLimit = config('filex.performance.time_limit', 600);
-            
-            ini_set('memory_limit', $memoryLimit);
-            set_time_limit($timeLimit);
-            
-            // Optimize PHP for file operations
-            ini_set('auto_detect_line_endings', '0');
-            ini_set('default_socket_timeout', '300');
-            
-            if (function_exists('gc_collect_cycles')) {
-                gc_collect_cycles();
-            }
-            
-            $settingsApplied = true;
+        if (self::$performanceApplied) {
+            return;
         }
+        
+        $memoryLimit = config('filex.performance.memory_limit', '1G');
+        $timeLimit = config('filex.performance.time_limit', 600);
+        
+        // Set memory and time limits
+        if (ini_get('memory_limit') !== $memoryLimit) {
+            ini_set('memory_limit', $memoryLimit);
+        }
+        
+        if (ini_get('max_execution_time') < $timeLimit) {
+            set_time_limit($timeLimit);
+        }
+        
+        // Optimize PHP settings for file operations
+        ini_set('auto_detect_line_endings', '0');
+        ini_set('default_socket_timeout', '300');
+        
+        // Force garbage collection for memory optimization
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+        
+        // Enable OPcache optimization if available
+        if (function_exists('opcache_get_status') && function_exists('opcache_reset') && opcache_get_status()) {
+            opcache_reset();
+        }
+        
+        self::$performanceApplied = true;
     }
 
     /**

@@ -10,9 +10,14 @@ use Illuminate\Support\Facades\Log;
 trait HasFilex
 {
     protected $filexService;
+    
+    /**
+     * Cache for performance settings
+     */
+    private static bool $performanceOptimized = false;
 
     /**
-     * Get the filex service instance
+     * Get the filex service instance with caching
      */
     protected function getFilexService(): FilexService
     {
@@ -24,14 +29,7 @@ trait HasFilex
     }
 
     /**
-     * Process uploaded files from temp to permanent storage
-     * 
-     * @param Request $request
-     * @param string $fieldName The form field name for file uploads
-     * @param string $targetDirectory Target directory for permanent storage
-     * @param string|null $disk Storage disk to use (defaults to config)
-     * @param bool $required Whether files are required
-     * @return array Array of successfully processed file paths
+     * Optimized file processing with bulk operations and caching
      */
     protected function processFiles(
         Request $request, 
@@ -40,18 +38,9 @@ trait HasFilex
         ?string $disk = null,
         bool $required = false
     ): array {
-        // Apply performance settings early for large file operations
-        $memoryLimit = config('filex.performance.memory_limit', '1G');
-        $timeLimit = config('filex.performance.time_limit', 600);
+        // Apply performance settings once
+        $this->applyPerformanceOptimizations();
         
-        ini_set('memory_limit', $memoryLimit);
-        set_time_limit($timeLimit);
-        
-        // Force garbage collection
-        if (function_exists('gc_collect_cycles')) {
-            gc_collect_cycles();
-        }
-
         $tempPaths = $request->input($fieldName, []);
         
         // Handle single file upload (non-array input)
@@ -69,43 +58,90 @@ trait HasFilex
             return [];
         }
 
-        // Move files from temp to permanent storage using optimized batch processing
-        $results = $this->getFilexService()->moveBatch(
-            $tempPaths, 
-            $targetDirectory, 
-            $disk
-        );
+        // Use bulk operations for better performance
+        $filexService = $this->getFilexService();
+        
+        // Pre-validate files in batch
+        $validationResults = $this->validateFilesBatch($tempPaths);
+        $validPaths = array_filter($tempPaths, function($path, $index) use ($validationResults) {
+            return $validationResults[$index]['valid'];
+        }, ARRAY_FILTER_USE_BOTH);
 
-        // Extract successful file paths
-        $successfulFiles = [];
-        $failedFiles = [];
-
-        foreach ($results as $result) {
-            if ($result['success']) {
-                $successfulFiles[] = $result['finalPath'];
-            } else {
-                $failedFiles[] = [
-                    'tempPath' => $result['tempPath'],
-                    'error' => $result['message']
-                ];
-            }
+        if (empty($validPaths)) {
+            throw new \InvalidArgumentException('No valid files found for processing');
         }
 
-        // Log any failed transfers
-        if (!empty($failedFiles)) {
-            Log::warning('Some files failed to move from temp storage', [
+        // Use bulk move operation
+        $results = $filexService->moveFilesBulk($validPaths, $targetDirectory, $disk);
+        
+        // Extract successful file paths
+        $successfulPaths = array_column(
+            array_filter($results, fn($r) => $r['success']), 
+            'finalPath'
+        );
+        
+        // Log any failures
+        $failures = array_filter($results, fn($r) => !$r['success']);
+        if (!empty($failures)) {
+            Log::warning('Some files failed to process', [
                 'field' => $fieldName,
-                'failed_files' => $failedFiles,
-                'request_id' => $request->header('X-Request-ID', uniqid())
+                'failures' => $failures
             ]);
         }
 
-        // If some files failed and files are required, throw exception
-        if ($required && empty($successfulFiles)) {
-            throw new \RuntimeException('All file uploads failed to process');
+        return $successfulPaths;
+    }
+    
+    /**
+     * Apply performance optimizations once
+     */
+    private function applyPerformanceOptimizations(): void
+    {
+        if (self::$performanceOptimized) {
+            return;
         }
-
-        return $successfulFiles;
+        
+        // Apply performance settings early for large file operations
+        $memoryLimit = config('filex.performance.memory_limit', '1G');
+        $timeLimit = config('filex.performance.time_limit', 600);
+        
+        ini_set('memory_limit', $memoryLimit);
+        set_time_limit($timeLimit);
+        
+        // Force garbage collection
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+        
+        self::$performanceOptimized = true;
+    }
+    
+    /**
+     * Validate files in batch for better performance
+     */
+    private function validateFilesBatch(array $tempPaths): array
+    {
+        $results = [];
+        $filexService = $this->getFilexService();
+        
+        foreach ($tempPaths as $tempPath) {
+            if (!is_string($tempPath) || !str_starts_with($tempPath, 'temp/')) {
+                $results[] = ['valid' => false, 'message' => 'Invalid temp path format'];
+                continue;
+            }
+            
+            $metadata = $filexService->getTempMeta($tempPath);
+            if (!$metadata) {
+                $results[] = ['valid' => false, 'message' => 'File metadata not found'];
+                continue;
+            }
+            
+            $originalName = $metadata['original_name'] ?? basename($tempPath);
+            $validation = $filexService->validateTemp($tempPath, $originalName);
+            $results[] = $validation;
+        }
+        
+        return $results;
     }
 
     /**
