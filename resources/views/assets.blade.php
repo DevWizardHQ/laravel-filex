@@ -10,7 +10,8 @@
 <script>
     window.filexRoutes = {
         upload: '{{ route('filex.upload.temp') }}',
-        delete: '{{ url('filex/temp') }}/', // Base URL for delete operations
+        uploadOptimized: '{{ route('filex.upload.temp.optimized') }}',
+        delete: '{{ route('filex.temp.delete', ['filename' => '__FILENAME__']) }}', // Will replace __FILENAME__ in JS
         config: '{{ route('filex.config') }}'
     };
     

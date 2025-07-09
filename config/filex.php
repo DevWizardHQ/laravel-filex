@@ -14,6 +14,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Route Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure the route settings for the file upload endpoints.
+    |
+    */
+    'routes' => [
+        'prefix' => env('FILEX_ROUTE_PREFIX', 'filex'),
+        'domain' => env('FILEX_ROUTE_DOMAIN', null),
+        'middleware' => env('FILEX_ROUTE_MIDDLEWARE', []),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Default Storage Disk
     |--------------------------------------------------------------------------
     |
@@ -64,24 +78,74 @@ return [
     */
     'allowed_extensions' => [
         // Images
-        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'tif', 'ico',
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'bmp',
+        'webp',
+        'svg',
+        'tiff',
+        'tif',
+        'ico',
 
         // Documents
-        'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv',
-        'odt', 'ods', 'odp',
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+        'txt',
+        'rtf',
+        'csv',
+        'odt',
+        'ods',
+        'odp',
 
         // Archives
-        'zip', 'rar', '7z', 'tar', 'gz', 'bz2',
+        'zip',
+        'rar',
+        '7z',
+        'tar',
+        'gz',
+        'bz2',
 
         // Audio
-        'mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a',
+        'mp3',
+        'wav',
+        'ogg',
+        'aac',
+        'flac',
+        'm4a',
 
         // Video
-        'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp',
+        'mp4',
+        'avi',
+        'mov',
+        'wmv',
+        'flv',
+        'webm',
+        'mkv',
+        '3gp',
 
         // Text/Code files
-        'html', 'htm', 'xml', 'json', 'css', 'js', 'php', 'py', 'java', 'cpp',
-        'c', 'h', 'sql', 'md', 'log',
+        'html',
+        'htm',
+        'xml',
+        'json',
+        'css',
+        'js',
+        'php',
+        'py',
+        'java',
+        'cpp',
+        'c',
+        'h',
+        'sql',
+        'md',
+        'log',
     ],
 
     /*
@@ -95,12 +159,20 @@ return [
     */
     'allowed_mime_types' => [
         // Images
-        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp',
-        'image/webp', 'image/svg+xml', 'image/tiff', 'image/x-icon',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/bmp',
+        'image/webp',
+        'image/svg+xml',
+        'image/tiff',
+        'image/x-icon',
         'image/vnd.microsoft.icon',
 
         // Documents
-        'application/pdf', 'application/msword',
+        'application/pdf',
+        'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -109,27 +181,59 @@ return [
         'application/vnd.oasis.opendocument.text',
         'application/vnd.oasis.opendocument.spreadsheet',
         'application/vnd.oasis.opendocument.presentation',
-        'text/plain', 'text/rtf', 'text/csv', 'application/rtf',
+        'text/plain',
+        'text/rtf',
+        'text/csv',
+        'application/rtf',
 
         // Archives
-        'application/zip', 'application/x-rar-compressed', 'application/x-rar',
-        'application/rar', 'application/x-7z-compressed', 'application/x-tar',
-        'application/gzip', 'application/x-gzip', 'application/x-compressed',
+        'application/zip',
+        'application/x-rar-compressed',
+        'application/x-rar',
+        'application/rar',
+        'application/x-7z-compressed',
+        'application/x-tar',
+        'application/gzip',
+        'application/x-gzip',
+        'application/x-compressed',
         'application/x-zip-compressed',
 
         // Audio
-        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/x-wav',
-        'audio/ogg', 'audio/aac', 'audio/x-aac', 'audio/flac', 'audio/x-flac',
-        'audio/m4a', 'audio/mp4',
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/wave',
+        'audio/x-wav',
+        'audio/ogg',
+        'audio/aac',
+        'audio/x-aac',
+        'audio/flac',
+        'audio/x-flac',
+        'audio/m4a',
+        'audio/mp4',
 
         // Video
-        'video/mp4', 'video/x-msvideo', 'video/avi', 'video/quicktime',
-        'video/x-ms-wmv', 'video/x-flv', 'video/webm', 'video/x-matroska',
-        'video/mkv', 'video/3gpp', 'video/x-ms-asf',
+        'video/mp4',
+        'video/x-msvideo',
+        'video/avi',
+        'video/quicktime',
+        'video/x-ms-wmv',
+        'video/x-flv',
+        'video/webm',
+        'video/x-matroska',
+        'video/mkv',
+        'video/3gpp',
+        'video/x-ms-asf',
 
         // Text files
-        'text/html', 'text/xml', 'application/xml', 'application/json',
-        'text/json', 'text/css', 'text/javascript', 'application/javascript',
+        'text/html',
+        'text/xml',
+        'application/xml',
+        'application/json',
+        'text/json',
+        'text/css',
+        'text/javascript',
+        'application/javascript',
 
         // Other common types
         'application/octet-stream', // Generic binary

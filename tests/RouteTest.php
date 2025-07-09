@@ -37,4 +37,41 @@ class RouteTest extends TestCase
         $url = route('filex.temp.info', ['filename' => 'test-file.txt']);
         $this->assertStringContainsString('filex/temp/test-file.txt/info', $url);
     }
+    
+    /** @test */
+    public function it_uses_configured_route_prefix()
+    {
+        // Test default prefix
+        $route = Route::getRoutes()->getByName('filex.upload.temp');
+        $this->assertNotNull($route);
+        $this->assertStringContainsString('filex/upload-temp', $route->uri());
+        
+        // Test that all filex routes use the configured prefix
+        $filexRoutes = collect(Route::getRoutes()->getRoutes())
+            ->filter(function ($route) {
+                return strpos($route->getName(), 'filex.') === 0;
+            });
+            
+        $this->assertGreaterThan(0, $filexRoutes->count());
+        
+        foreach ($filexRoutes as $route) {
+            $this->assertStringContainsString('filex/', $route->uri());
+        }
+    }
+    
+    /** @test */
+    public function it_has_all_required_routes()
+    {
+        $requiredRoutes = [
+            'filex.upload.temp',
+            'filex.upload.temp.optimized',
+            'filex.temp.delete',
+            'filex.temp.info',
+            'filex.config'
+        ];
+        
+        foreach ($requiredRoutes as $routeName) {
+            $this->assertTrue(Route::has($routeName), "Route {$routeName} should exist");
+        }
+    }
 }
