@@ -64,7 +64,9 @@
                 "DevWizard\\Filex\\FilexServiceProvider"
             ],
             "aliases": {
-                "Filex": "DevWizard\\Filex\\Facades\\Filex"
+                "Filex": "DevWizard\\Filex\\Facades\\Filex",
+                "FileRule": "DevWizard\\Filex\\Facades\\FileRule",
+                "FilexRule": "DevWizard\\Filex\\Support\\FilexRule"
             }
         }
     },

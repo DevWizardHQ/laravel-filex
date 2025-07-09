@@ -4,6 +4,7 @@ namespace DevWizard\Filex\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Carbon\Carbon;
@@ -176,11 +177,11 @@ class FilexService
                     // Clean up temp file
                     $this->deleteTemp($tempPath);
                     
+                    $diskInstance = Storage::disk($disk);
                     $results[] = [
                         'success' => true,
                         'tempPath' => $tempPath,
                         'finalPath' => $finalPath,
-                        'url' => Storage::disk($disk)->url($finalPath),
                         'metadata' => $metadata
                     ];
                 } else {
@@ -567,7 +568,6 @@ class FilexService
                 'success' => true,
                 'tempPath' => $tempPath,
                 'finalPath' => $finalPath,
-                'url' => $targetDisk->url($finalPath),
                 'metadata' => $metadata
             ];
         }
@@ -576,10 +576,525 @@ class FilexService
     }
 
     /**
+     * Enhanced file validation with multiple security layers
+     */
+    public function validateSecure(string $tempPath, string $originalName): array
+    {
+        try {
+            $tempDisk = $this->getTempDisk();
+            
+            if (!$tempDisk->exists($tempPath)) {
+                return ['valid' => false, 'message' => 'File not found'];
+            }
+
+            $filePath = $tempDisk->path($tempPath);
+            $fileSize = $tempDisk->size($tempPath);
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+            // 1. Basic validations
+            $basicValidation = $this->validateTemp($tempPath, $originalName);
+            if (!$basicValidation['valid']) {
+                return $basicValidation;
+            }
+
+            // 2. File signature validation
+            if (!$this->validateFileSignature($filePath, $extension)) {
+                return ['valid' => false, 'message' => 'File signature validation failed'];
+            }
+
+            // 3. Content-based validation for specific file types
+            if (!$this->validateFileContent($filePath, $extension)) {
+                return ['valid' => false, 'message' => 'File content validation failed'];
+            }
+
+            // 4. Security scanning
+            if (!$this->scanForThreats($filePath, $originalName)) {
+                return ['valid' => false, 'message' => 'Security scan failed'];
+            }
+
+            return ['valid' => true, 'message' => 'File passed all security validations'];
+
+        } catch (\Exception $e) {
+            Log::error('Enhanced file validation error: ' . $e->getMessage(), [
+                'temp_path' => $tempPath,
+                'original_name' => $originalName
+            ]);
+            return ['valid' => false, 'message' => 'Validation failed due to an error'];
+        }
+    }
+
+    /**
+     * Validate file signature (magic bytes)
+     */
+    protected function validateFileSignature(string $filePath, string $extension): bool
+    {
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            return false;
+        }
+
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return false;
+        }
+
+        $header = fread($handle, 32);
+        fclose($handle);
+
+        if ($header === false) {
+            return false;
+        }
+
+        $signatures = [
+            'jpg' => ["\xFF\xD8\xFF"],
+            'jpeg' => ["\xFF\xD8\xFF"],
+            'png' => ["\x89PNG\r\n\x1A\n"],
+            'gif' => ["GIF87a", "GIF89a"],
+            'pdf' => ["%PDF-"],
+            'zip' => ["PK\x03\x04"],
+            'docx' => ["PK\x03\x04"],
+            'xlsx' => ["PK\x03\x04"],
+            'pptx' => ["PK\x03\x04"],
+        ];
+
+        if (!isset($signatures[$extension])) {
+            return true; // No signature check for this extension
+        }
+
+        foreach ($signatures[$extension] as $signature) {
+            if (str_starts_with($header, $signature)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Validate file content for specific types
+     */
+    protected function validateFileContent(string $filePath, string $extension): bool
+    {
+        try {
+            switch ($extension) {
+                case 'jpg':
+                case 'jpeg':
+                case 'png':
+                case 'gif':
+                case 'webp':
+                    return $this->validateImageContent($filePath);
+                
+                case 'pdf':
+                    return $this->validatePdfContent($filePath);
+                
+                case 'docx':
+                case 'xlsx':
+                case 'pptx':
+                    return $this->validateOfficeContent($filePath);
+                
+                default:
+                    return true; // No specific validation for this type
+            }
+        } catch (\Exception $e) {
+            Log::warning('Content validation error', [
+                'file_path' => basename($filePath),
+                'extension' => $extension,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Validate image content using getimagesize
+     */
+    protected function validateImageContent(string $filePath): bool
+    {
+        $imageInfo = @getimagesize($filePath);
+        return $imageInfo !== false;
+    }
+
+    /**
+     * Validate PDF content structure
+     */
+    protected function validatePdfContent(string $filePath): bool
+    {
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return false;
+        }
+
+        // Check PDF header
+        $header = fread($handle, 8);
+        if (!str_starts_with($header, '%PDF-')) {
+            fclose($handle);
+            return false;
+        }
+
+        // Check for PDF trailer (look for %%EOF)
+        fseek($handle, -256, SEEK_END);
+        $trailer = fread($handle, 256);
+        fclose($handle);
+
+        return str_contains($trailer, '%%EOF');
+    }
+
+    /**
+     * Validate Office document content (ZIP-based OOXML)
+     */
+    protected function validateOfficeContent(string $filePath): bool
+    {
+        if (!class_exists('ZipArchive')) {
+            return true; // Skip validation if ZipArchive not available
+        }
+
+        $zip = new \ZipArchive();
+        $result = $zip->open($filePath, \ZipArchive::RDONLY);
+        
+        if ($result !== true) {
+            return false;
+        }
+
+        // Check for required OOXML structure
+        $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
+        $hasRels = $zip->locateName('_rels/.rels') !== false;
+        
+        $zip->close();
+        
+        return $hasContentTypes && $hasRels;
+    }
+
+    /**
+     * Scan for potential security threats
+     */
+    protected function scanForThreats(string $filePath, string $originalName): bool
+    {
+        // 1. Check for executable disguised as other files
+        if ($this->isExecutableFile($filePath)) {
+            Log::alert('Executable file detected', [
+                'file_path' => basename($filePath),
+                'original_name' => $originalName
+            ]);
+            return false;
+        }
+
+        // 2. Check for suspicious file names
+        if ($this->hasSuspiciousFileName($originalName)) {
+            Log::alert('Suspicious filename detected', [
+                'original_name' => $originalName
+            ]);
+            return false;
+        }
+
+        // 3. Scan file content for suspicious patterns
+        if ($this->containsSuspiciousContent($filePath)) {
+            Log::alert('Suspicious content detected', [
+                'file_path' => basename($filePath),
+                'original_name' => $originalName
+            ]);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if file is an executable
+     */
+    protected function isExecutableFile(string $filePath): bool
+    {
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return false;
+        }
+
+        $header = fread($handle, 16);
+        fclose($handle);
+
+        $executableSignatures = [
+            "\x4D\x5A", // PE/EXE files
+            "\x7FELF", // ELF files
+            "\xCF\xFA\xED\xFE", // Mach-O files
+            "#!/bin/", // Shell scripts
+            "#!/usr/bin/", // Shell scripts
+        ];
+
+        foreach ($executableSignatures as $signature) {
+            if (str_starts_with($header, $signature)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check for suspicious file names
+     */
+    protected function hasSuspiciousFileName(string $filename): bool
+    {
+        // Null bytes
+        if (str_contains($filename, "\0")) {
+            return true;
+        }
+
+        // Path traversal
+        if (str_contains($filename, '..') || str_contains($filename, '/') || str_contains($filename, '\\')) {
+            return true;
+        }
+
+        // Double extensions
+        if (preg_match('/\.[a-z]{2,4}\.[a-z]{2,4}$/i', $filename)) {
+            return true;
+        }
+
+        // Suspicious patterns
+        $suspiciousPatterns = [
+            '/\.(php|phtml|php3|php4|php5)$/i',
+            '/\.(asp|aspx|jsp|cfm)$/i',
+            '/\.(exe|bat|cmd|scr)$/i',
+            '/\.(htaccess|htpasswd)$/i',
+        ];
+
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $filename)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Scan file content for suspicious patterns
+     */
+    protected function containsSuspiciousContent(string $filePath): bool
+    {
+        // Only scan text-based files to avoid false positives
+        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $textExtensions = ['txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv'];
+        
+        if (!in_array($extension, $textExtensions)) {
+            return false; // Skip binary files
+        }
+
+        $content = file_get_contents($filePath, false, null, 0, 10240); // Read first 10KB
+        if ($content === false) {
+            return false;
+        }
+
+        $suspiciousPatterns = [
+            '/<\?php/i',
+            '/<%[^>]*%>/i', // ASP tags
+            '/javascript:/i',
+            '/vbscript:/i',
+            '/onload\s*=/i',
+            '/onerror\s*=/i',
+            '/eval\s*\(/i',
+            '/exec\s*\(/i',
+            '/system\s*\(/i',
+            '/shell_exec\s*\(/i',
+            '/passthru\s*\(/i',
+            '/base64_decode\s*\(/i',
+        ];
+
+        foreach ($suspiciousPatterns as $pattern) {
+            if (preg_match($pattern, $content)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Quarantine suspicious file
+     */
+    public function quarantineFile(string $tempPath, string $reason): bool
+    {
+        try {
+            $tempDisk = $this->getTempDisk();
+            $quarantineDir = 'quarantine/' . date('Y/m/d');
+            $quarantineFile = $quarantineDir . '/' . basename($tempPath) . '_' . time();
+            
+            // Create quarantine directory
+            if (!$tempDisk->exists($quarantineDir)) {
+                $tempDisk->makeDirectory($quarantineDir);
+            }
+            
+            // Move file to quarantine
+            $result = $tempDisk->move($tempPath, $quarantineFile);
+            
+            if ($result) {
+                // Create quarantine metadata
+                $metadata = [
+                    'original_path' => $tempPath,
+                    'quarantined_at' => now()->toISOString(),
+                    'reason' => $reason,
+                    'user_id' => Auth::id(),
+                    'ip_address' => request()->ip(),
+                ];
+                
+                $tempDisk->put($quarantineFile . '.meta', json_encode($metadata));
+                
+                Log::alert('File quarantined', [
+                    'original_path' => $tempPath,
+                    'quarantine_path' => $quarantineFile,
+                    'reason' => $reason
+                ]);
+            }
+            
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('Failed to quarantine file: ' . $e->getMessage(), [
+                'temp_path' => $tempPath,
+                'reason' => $reason
+            ]);
+            return false;
+        }
+    }
+
+    /**
      * Get the temporary storage disk instance
      */
     public function getTempDisk()
     {
         return Storage::disk(config('filex.temp_disk', 'local'));
+    }
+
+    /**
+     * Render Filex assets and routes configuration
+     *
+     * @return string
+     */
+    public function renderFilexAssetsAndRoutes()
+    {
+        $cssAssets = [
+            asset('vendor/filex/css/dropzone.min.css'),
+            asset('vendor/filex/css/filex.css')
+        ];
+
+        $jsAssets = [
+            asset('vendor/filex/js/dropzone.min.js'),
+            asset('vendor/filex/js/filex.js')
+        ];
+
+        $output = '';
+
+        // Add CSS assets
+        foreach ($cssAssets as $css) {
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
+        }
+
+        // Add JS assets
+        foreach ($jsAssets as $js) {
+            $output .= '<script src="' . $js . '"></script>' . "\n";
+        }
+
+        // Add routes configuration
+        $uploadRoute = route('filex.upload.temp');
+        $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
+        
+        $output .= '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
+
+        return $output;
+    }
+
+    /**
+     * Static version of renderFilexAssetsAndRoutes to avoid dependency injection issues
+     *
+     * @return string
+     */
+    public static function renderFilexAssetsAndRoutesStatic()
+    {
+        $cssAssets = [
+            asset('vendor/filex/css/dropzone.min.css'),
+            asset('vendor/filex/css/filex.css')
+        ];
+
+        $jsAssets = [
+            asset('vendor/filex/js/dropzone.min.js'),
+            asset('vendor/filex/js/filex.js')
+        ];
+
+        $output = '';
+
+        // Add CSS assets
+        foreach ($cssAssets as $css) {
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
+        }
+
+        // Add JS assets
+        foreach ($jsAssets as $js) {
+            $output .= '<script src="' . $js . '"></script>' . "\n";
+        }
+
+        // Add routes configuration
+        $uploadRoute = route('filex.upload.temp');
+        $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
+        
+        $output .= '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
+
+        return $output;
+    }
+
+    /**
+     * Render Filex assets (CSS and JS)
+     *
+     * @return string
+     */
+    public function renderFilexAssets()
+    {
+        $cssAssets = [
+            asset('vendor/filex/css/dropzone.min.css'),
+            asset('vendor/filex/css/filex.css')
+        ];
+
+        $jsAssets = [
+            asset('vendor/filex/js/dropzone.min.js'),
+            asset('vendor/filex/js/filex.js')
+        ];
+
+        $output = '';
+
+        // Add CSS assets
+        foreach ($cssAssets as $css) {
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
+        }
+
+        // Add JS assets
+        foreach ($jsAssets as $js) {
+            $output .= '<script src="' . $js . '"></script>' . "\n";
+        }
+
+        return $output;
+    }
+
+    /**
+     * Render Filex routes configuration
+     *
+     * @param string $uploadRoute
+     * @param string $deleteRoute
+     * @return string
+     */
+    public function renderFilexRoutes($uploadRoute, $deleteRoute)
+    {
+        $output = '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
+
+        return $output;
     }
 }

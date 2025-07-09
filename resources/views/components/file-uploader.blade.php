@@ -3,7 +3,12 @@
 
     A powerful and flexible file upload component built on Dropzone.js
     that provides drag-and-drop uploads, progress tracking, chunked uploads,
-    and temporary file handling for Laravel applications.
+    and temporary file handling for Laravel     <!-- File uploader container -->
+    <div id="{{ $componentId }}"
+         class="filex-uploader {{ $class }} {{ $required ? 'required' : '' }} {{ $disabled ? 'disabled' : '' }}"
+         style="{{ $style }}"
+         data-component-id="{{ $componentId }}"
+         data-config="{{ htmlspecialchars(json_encode($jsConfig), ENT_QUOTES, 'UTF-8') }}"ications.
 
     Usage: <x-filex-uploader name="files" :multiple="true" />
 
@@ -11,43 +16,61 @@
 --}}
 
 @props([
+    // Basic Laravel form conventions
     'name' => 'files',
-    'multiple' => true,
+    'id' => null,
     'required' => false,
+    'disabled' => false,
+    'readonly' => false,
+
+    // File upload specific
+    'multiple' => true,
+    'accept' => null,
     'maxFiles' => null,
-    'maxFilesize' => null, // Will use config default if null
-    'acceptedFiles' => null,
-    'previewTemplate' => true,
-    'showProgress' => true,
-    'chunkSize' => null, // Will use config default if null
-    'retries' => null, // Will use config default if null
-    'timeout' => null, // Will use config default if null
-    'dictDefaultMessage' => null,
-    'dictFileTooBig' => null,
-    'dictInvalidFileType' => null,
-    'dictResponseError' => null,
-    'dictMaxFilesExceeded' => null,
-    'dictRemoveFile' => null,
-    'addRemoveLinks' => true,
-    'autoProcessQueue' => true,
-    'parallelUploads' => null, // Will use config default if null
-    'uploadMultiple' => false,
-    'onSuccess' => null,
-    'onError' => null,
-    'onComplete' => null,
-    'onAddedFile' => null,
-    'onRemovedFile' => null,
-    'onUpload' => null,
-    'disableFormOnUpload' => true,
-    'existingFiles' => [],
-    'validation' => [],
-    'serverValidation' => true,
+    'maxSize' => null,
+    'minSize' => null,
+
+    // Validation rules (Laravel style)
+    'rules' => [],
+    'mimes' => null,
+    'extensions' => null,
+    'dimensions' => null,
     'clientValidation' => true,
+    'serverValidation' => true,
+
+    // UI and behavior
+    'label' => null,
+    'helpText' => null,
+    'placeholder' => null,
+    'showProgress' => true,
+    'showFileSize' => true,
+    'showFileName' => true,
+    'allowPreview' => true,
+    'previewTemplate' => true,
     'showFileIcons' => true,
-    'showUploadProgress' => true,
+    'addRemoveLinks' => true,
     'enableRetry' => true,
-    'customErrorMessages' => [],
+
+    // Upload behavior
+    'autoProcess' => true,
+    'parallelUploads' => null,
+    'chunkSize' => null,
+    'retries' => null,
+    'timeout' => null,
+
+    // Styling
+    'class' => '',
+    'style' => '',
+    'wrapperClass' => '',
+
+    // Advanced options
+    'disk' => null,
+    'path' => 'uploads',
+    'value' => [],
     'locale' => null,
+    'debug' => false,
+
+    // Image processing
     'thumbnailWidth' => 120,
     'thumbnailHeight' => 120,
     'thumbnailMethod' => 'contain',
@@ -55,67 +78,174 @@
     'resizeWidth' => null,
     'resizeHeight' => null,
     'resizeMimeType' => null,
-    'cloudUpload' => false,
-    'disk' => null,
-    'targetDirectory' => 'uploads',
-    'id' => null,
-    'class' => '',
-    'style' => '',
-    'wrapperClass' => '',
-    'helpText' => null,
-    'label' => null,
-    'showFileSize' => true,
-    'showFileName' => true,
-    'allowPreview' => true,
-    'debug' => false,
+
+    // Events (Laravel style naming)
+    'onSuccess' => null,
+    'onError' => null,
+    'onComplete' => null,
+    'onFileAdded' => null,
+    'onFileRemoved' => null,
+    'onUpload' => null,
+
+    // Custom messages
+    'messages' => [],
+    'errorMessages' => [],
+
+    // Legacy support (deprecated but maintained for BC)
+    'maxFilesize' => null,
+    'acceptedFiles' => null,
+    'targetDirectory' => null,
+    'dictDefaultMessage' => null,
+    'dictFileTooBig' => null,
+    'dictInvalidFileType' => null,
+    'dictResponseError' => null,
+    'dictMaxFilesExceeded' => null,
+    'dictRemoveFile' => null,
+    'customErrorMessages' => [],
 ])
 
 @php
+    // Generate component ID
     $componentId = $id ?? 'filex-uploader-' . uniqid();
     $hiddenInputName = $multiple ? $name . '[]' : $name;
 
+    // Handle legacy prop names for backward compatibility
+    $maxSize = $maxSize ?? ($maxFilesize ?? config('filex.max_file_size', 10));
+    $accept = $accept ?? $acceptedFiles;
+    $path = $path ?? ($targetDirectory ?? 'uploads');
+    $autoProcess = $autoProcess ?? ($autoProcessQueue ?? true);
+
+    // Process value prop - can be string, array, or null
+    $existingFiles = [];
+    if (!empty($value)) {
+        if (is_string($value)) {
+            $existingFiles = [$value];
+        } elseif (is_array($value)) {
+            $existingFiles = array_filter($value); // Remove empty values
+        }
+    }
+
     // Get configuration values with fallbacks
-    $maxFilesize = $maxFilesize ?? config('filex.max_file_size', 10);
     $chunkSize = $chunkSize ?? config('filex.chunk.size', 1048576);
     $retries = $retries ?? config('filex.chunk.max_retries', 3);
     $timeout = $timeout ?? config('filex.chunk.timeout', 30000);
     $parallelUploads = $parallelUploads ?? config('filex.performance.parallel_uploads', 2);
     $disk = $disk ?? config('filex.default_disk', 'public');
 
-    // Get localized messages
-    $locale = $locale ?? app()->getLocale();
-    $messages = [
-        'dictDefaultMessage' => $dictDefaultMessage ?? __('Drop files here or click to upload'),
-        'dictFileTooBig' =>
-            $dictFileTooBig ?? __('File is too big ({{ filesize }}MiB). Max filesize: {{ maxFilesize }}MiB.'),
-        'dictInvalidFileType' => $dictInvalidFileType ?? __('You can\'t upload files of this type.'),
-        'dictResponseError' => $dictResponseError ?? __('Server responded with {{ statusCode }} code.'),
-        'dictMaxFilesExceeded' => $dictMaxFilesExceeded ?? __('You can not upload any more files.'),
-        'dictRemoveFile' => '', // Empty string to prevent text from showing
+    // Process validation rules and build frontend validation config
+    $frontendValidation = [
+        'rules' => [],
+        'messages' => [],
+        'enabled' => $clientValidation,
     ];
 
-    // Merge custom error messages
-    $messages = array_merge($messages, $customErrorMessages);
-
-    // Process validation rules
-    $validationRules = [];
-    if (!empty($validation)) {
-        foreach ($validation as $rule => $value) {
-            if ($rule === 'mimes' && is_array($value)) {
-                $validationRules['acceptedFiles'] = '.' . implode(',.', $value);
-            } elseif ($rule === 'max' && is_numeric($value)) {
-                $validationRules['maxFilesize'] = $value / 1024; // Convert KB to MB
-            } elseif ($rule === 'dimensions') {
-                // Handle image dimension validation
-                if (isset($value['max_width'])) {
-                    $validationRules['resizeWidth'] = $value['max_width'];
+    // Parse Laravel-style validation rules
+    if (!empty($rules)) {
+        foreach ($rules as $rule) {
+            if (is_string($rule)) {
+                // Handle string rules like 'required|mimes:jpeg,png|max:2048'
+                $ruleParts = explode('|', $rule);
+                foreach ($ruleParts as $rulePart) {
+                    $frontendValidation['rules'][] = $rulePart;
                 }
-                if (isset($value['max_height'])) {
-                    $validationRules['resizeHeight'] = $value['max_height'];
+            } elseif (is_object($rule)) {
+                // Handle validation rule objects (FilexRule, ValidFileUpload, etc.)
+                $className = get_class($rule);
+                if (str_contains($className, 'FilexImage')) {
+                    $frontendValidation['rules'][] = 'image';
+                } elseif (str_contains($className, 'FilexMimes')) {
+                    $frontendValidation['rules'][] = 'file';
+                } elseif (str_contains($className, 'ValidFileUpload')) {
+                    $frontendValidation['rules'][] = 'file';
                 }
             }
         }
     }
+
+    // Handle shorthand validation props
+    if ($mimes) {
+        $accept = $accept ?? '.' . str_replace(',', ',.', $mimes);
+        $frontendValidation['rules'][] = 'mimes:' . $mimes;
+    }
+
+    if ($extensions) {
+        $accept = $accept ?? '.' . str_replace(',', ',.', $extensions);
+        $frontendValidation['rules'][] = 'mimes:' . $extensions;
+    }
+
+    if ($maxSize) {
+        $frontendValidation['rules'][] = 'max:' . $maxSize * 1024; // Convert MB to KB for validation
+    }
+
+    if ($minSize) {
+        $frontendValidation['rules'][] = 'min:' . $minSize * 1024; // Convert MB to KB for validation
+    }
+
+    if ($dimensions) {
+        if (is_string($dimensions)) {
+            $frontendValidation['rules'][] = 'dimensions:' . $dimensions;
+        } elseif (is_array($dimensions)) {
+            $dimensionParts = [];
+            foreach ($dimensions as $key => $value) {
+                $dimensionParts[] = $key . '=' . $value;
+            }
+            $frontendValidation['rules'][] = 'dimensions:' . implode(',', $dimensionParts);
+        }
+    }
+
+    // Get localized messages
+    $locale = $locale ?? app()->getLocale();
+    $defaultMessages = [
+        'dictDefaultMessage' => $placeholder ?? ($dictDefaultMessage ?? __('Drop files here or click to upload')),
+        'dictFileTooBig' => $dictFileTooBig ?? __('File is too big (:filesize MB). Max filesize: :maxFilesize MB.'),
+        'dictInvalidFileType' => $dictInvalidFileType ?? __('You cannot upload files of this type.'),
+        'dictResponseError' => $dictResponseError ?? __('Server responded with :statusCode code.'),
+        'dictMaxFilesExceeded' => $dictMaxFilesExceeded ?? __('You cannot upload any more files.'),
+        'dictRemoveFile' => $dictRemoveFile ?? '',
+    ];
+
+    // Merge custom messages (new Laravel convention)
+    $allMessages = array_merge($defaultMessages, $messages, $customErrorMessages ?? []);
+
+    // Build JavaScript config object
+    $jsConfig = [
+        'componentId' => $componentId,
+        'name' => $name,
+        'multiple' => $multiple,
+        'required' => $required,
+        'disabled' => $disabled,
+        'readonly' => $readonly,
+        'maxFiles' => $maxFiles,
+        'maxSize' => $maxSize,
+        'minSize' => $minSize,
+        'existingFiles' => $existingFiles,
+        'accept' => $accept,
+        'autoProcess' => $autoProcess,
+        'parallelUploads' => $parallelUploads,
+        'chunkSize' => $chunkSize,
+        'retries' => $retries,
+        'timeout' => $timeout,
+        'disk' => $disk,
+        'path' => $path,
+        'validation' => $frontendValidation,
+        'serverValidation' => $serverValidation,
+        'messages' => $allMessages,
+        'debug' => $debug,
+        'thumbnailWidth' => $thumbnailWidth,
+        'thumbnailHeight' => $thumbnailHeight,
+        'thumbnailMethod' => $thumbnailMethod,
+        'resizeQuality' => $resizeQuality,
+        'resizeWidth' => $resizeWidth,
+        'resizeHeight' => $resizeHeight,
+        'events' => [
+            'onSuccess' => $onSuccess,
+            'onError' => $onError,
+            'onComplete' => $onComplete,
+            'onFileAdded' => $onFileAdded,
+            'onFileRemoved' => $onFileRemoved,
+            'onUpload' => $onUpload,
+        ],
+    ];
 @endphp
 
 <div class="filex-uploader-wrapper {{ $wrapperClass }}" data-component-id="{{ $componentId }}">
@@ -132,11 +262,15 @@
         <div class="form-text mb-2">{{ $helpText }}</div>
     @endif
     <!-- File uploader container -->
-    <div id="{{ $componentId }}" class="filex-uploader {{ $class }} {{ $required ? 'required' : '' }}"
-        style="{{ $style }}" data-max-filesize="{{ $maxFilesize }}"
-        data-accepted-files="{{ $acceptedFiles }}" data-max-files="{{ $maxFiles }}"
-        data-multiple="{{ $multiple ? 'true' : 'false' }}" data-name="{{ $name }}"
-        data-disk="{{ $disk }}" data-target-directory="{{ $targetDirectory }}">
+    <div id="{{ $componentId }}"
+        class="filex-uploader {{ $class }} {{ $required ? 'required' : '' }} {{ $disabled ? 'disabled' : '' }}"
+        style="{{ $style }}" data-component-id="{{ $componentId }}" data-config="{{ json_encode($jsConfig) }}"
+        data-max-filesize="{{ $maxSize }}" data-accepted-files="{{ $accept }}"
+        data-max-files="{{ $maxFiles }}" data-multiple="{{ $multiple ? 'true' : 'false' }}"
+        data-name="{{ $name }}" data-disk="{{ $disk }}" data-target-directory="{{ $path }}"
+        data-validation-enabled="{{ $clientValidation ? 'true' : 'false' }}"
+        data-frontend-rules="{{ json_encode($frontendValidation['rules']) }}">
+
         <div class="dz-message" data-dz-message>
             <div class="uploader-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48">
@@ -146,15 +280,21 @@
                 </svg>
             </div>
             <div class="uploader-text">
-                <h5 class="mb-2">{{ $messages['dictDefaultMessage'] }}</h5>
-                @if ($acceptedFiles)
-                    <small class="text-muted">Accepted files: {{ $acceptedFiles }}</small><br>
+                <h5 class="mb-2">{{ $allMessages['dictDefaultMessage'] }}</h5>
+                @if ($accept)
+                    <small class="text-muted">Accepted files: {{ $accept }}</small><br>
                 @endif
-                @if ($maxFilesize)
-                    <small class="text-muted">Max file size: {{ $maxFilesize }}MB</small><br>
+                @if ($maxSize)
+                    <small class="text-muted">Max file size: {{ $maxSize }}MB</small><br>
+                @endif
+                @if ($minSize)
+                    <small class="text-muted">Min file size: {{ $minSize }}MB</small><br>
                 @endif
                 @if ($maxFiles)
                     <small class="text-muted">Max files: {{ $maxFiles }}</small>
+                @endif
+                @if (!empty($frontendValidation['rules']) && $clientValidation)
+                    <small class="text-muted">Validation: {{ implode(', ', $frontendValidation['rules']) }}</small>
                 @endif
             </div>
         </div>
@@ -213,7 +353,3 @@
         </div>
     @endif
 </div>
-
-
-
-

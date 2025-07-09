@@ -816,6 +816,19 @@
 /* Custom classes for file previews */
 .filex-uploader .filex-preview-existing {
     border-style: dashed !important;
+    border-color: #28a745 !important;
+}
+
+.filex-uploader .filex-preview-existing.dz-success {
+    border-color: #28a745 !important;
+}
+
+.filex-uploader .filex-preview-existing .dz-progress {
+    display: none !important;
+}
+
+.filex-uploader .filex-preview-existing .dz-error-message {
+    display: none !important;
 }
 
 .filex-uploader .filex-preview-new {

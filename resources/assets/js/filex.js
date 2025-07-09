@@ -22,11 +22,24 @@
             return;
         }
 
+        // Disable Dropzone auto-discovery to prevent conflicts
+        Dropzone.autoDiscover = false;
+        
         // Find all filex uploader elements
         const filexElements = document.querySelectorAll('.filex-uploader[data-component-id]');
         
+        if (filexElements.length === 0) {
+            return;
+        }
+        
         filexElements.forEach(function(filexElement) {
             const componentId = filexElement.dataset.componentId;
+            
+            // Skip if already initialized
+            if (filexElement.getAttribute('data-filex-initialized') === 'true' || filexElement.dropzone) {
+                return;
+            }
+            
             const hiddenInputsContainer = document.getElementById(componentId + '-hidden-inputs');
             const statusElement = document.getElementById(componentId + '-status');
 
@@ -46,22 +59,65 @@
             let retryCount = {};
 
             // Get configuration from data attributes
-            const config = {
-                maxFilesize: parseFloat(filexElement.dataset.maxFilesize) || 10,
-                maxFiles: filexElement.dataset.maxFiles ? parseInt(filexElement.dataset.maxFiles) : null,
-                acceptedFiles: filexElement.dataset.acceptedFiles || null,
-                multiple: filexElement.dataset.multiple === 'true',
-                name: filexElement.dataset.name || 'files',
-                disk: filexElement.dataset.disk || 'public',
-                targetDirectory: filexElement.dataset.targetDirectory || 'uploads'
+            const rawConfig = filexElement.dataset.config;
+            let config = {};
+            
+            if (rawConfig) {
+                try {
+                    config = JSON.parse(rawConfig);
+                } catch (e) {
+                    console.warn('Failed to parse Filex config, using defaults:', e);
+                }
+            }
+            
+            // Fallback to individual data attributes for backward compatibility
+            config = {
+                componentId: config.componentId || filexElement.dataset.componentId,
+                name: config.name || filexElement.dataset.name || 'files',
+                multiple: config.multiple !== undefined ? config.multiple : (filexElement.dataset.multiple === 'true'),
+                required: config.required !== undefined ? config.required : filexElement.hasAttribute('data-required'),
+                disabled: config.disabled !== undefined ? config.disabled : filexElement.hasAttribute('data-disabled'),
+                readonly: config.readonly !== undefined ? config.readonly : filexElement.hasAttribute('data-readonly'),
+                maxFiles: config.maxFiles || (filexElement.dataset.maxFiles ? parseInt(filexElement.dataset.maxFiles) : null),
+                maxSize: config.maxSize || parseFloat(filexElement.dataset.maxFilesize) || 10,
+                minSize: config.minSize || null,
+                accept: config.accept || filexElement.dataset.acceptedFiles || null,
+                autoProcess: config.autoProcess !== undefined ? config.autoProcess : true,
+                parallelUploads: config.parallelUploads || 2,
+                chunkSize: config.chunkSize || 1048576,
+                retries: config.retries || 3,
+                timeout: config.timeout || 30000,
+                disk: config.disk || filexElement.dataset.disk || 'public',
+                path: config.path || filexElement.dataset.targetDirectory || 'uploads',
+                validation: config.validation || {
+                    rules: JSON.parse(filexElement.dataset.frontendRules || '[]'),
+                    enabled: filexElement.dataset.validationEnabled === 'true'
+                },
+                serverValidation: config.serverValidation !== undefined ? config.serverValidation : true,
+                messages: config.messages || {},
+                debug: config.debug || false,
+                thumbnailWidth: config.thumbnailWidth || 120,
+                thumbnailHeight: config.thumbnailHeight || 120,
+                thumbnailMethod: config.thumbnailMethod || 'contain',
+                resizeQuality: config.resizeQuality || 0.8,
+                events: config.events || {}
             };
 
-            // Initialize existing files from hidden inputs
+            // Initialize existing files from hidden inputs and config
             const existingInputs = hiddenInputsContainer ? hiddenInputsContainer.querySelectorAll('.existing-file-input') : [];
-            const existingFiles = Array.from(existingInputs).map(input => input.value);
+            const existingFilesFromInputs = Array.from(existingInputs).map(input => input.value);
+            const existingFilesFromConfig = config.existingFiles || [];
+            const existingFiles = [...existingFilesFromInputs, ...existingFilesFromConfig].filter(Boolean);
             
+            // Debug logging
+            console.log('Filex Debug - Config:', config);
+            console.log('Filex Debug - Existing files from inputs:', existingFilesFromInputs);
+            console.log('Filex Debug - Existing files from config:', existingFilesFromConfig);
+            console.log('Filex Debug - Combined existing files:', existingFiles);
+            
+            // Initialize uploadedFiles with existing files (don't duplicate)
             if (existingFiles && existingFiles.length > 0) {
-                uploadedFiles = [...existingFiles];
+                uploadedFiles = [...new Set(existingFiles)]; // Use Set to remove duplicates
             }
 
             // Create hidden input name
@@ -75,27 +131,32 @@
                     'X-CSRF-TOKEN': getCSRFToken()
                 },
                 paramName: 'file',
-                maxFilesize: config.maxFilesize,
+                maxFilesize: config.maxSize,
                 maxFiles: config.maxFiles,
-                acceptedFiles: config.acceptedFiles,
+                acceptedFiles: config.accept,
                 addRemoveLinks: true,
-                autoProcessQueue: true,
-                parallelUploads: 2,
+                autoProcessQueue: config.autoProcess,
+                parallelUploads: config.parallelUploads,
                 uploadMultiple: false,
                 chunking: true,
-                chunkSize: 1048576, // 1MB chunks
+                chunkSize: config.chunkSize,
                 parallelChunkUploads: false,
                 retryChunks: true,
-                retryChunksLimit: 3,
+                retryChunksLimit: config.retries,
                 forceChunking: function(file) {
                     return file.size > 50 * 1024 * 1024; // 50MB threshold
                 },
-                retries: 3,
-                timeout: 30000,
-                thumbnailWidth: 120,
-                thumbnailHeight: 120,
-                thumbnailMethod: 'contain',
-                dictRemoveFile: '',
+                retries: config.retries,
+                timeout: config.timeout,
+                thumbnailWidth: config.thumbnailWidth,
+                thumbnailHeight: config.thumbnailHeight,
+                thumbnailMethod: config.thumbnailMethod,
+                dictRemoveFile: config.messages.dictRemoveFile || '',
+                dictDefaultMessage: config.messages.dictDefaultMessage || 'Drop files here or click to upload',
+                dictFileTooBig: config.messages.dictFileTooBig || 'File is too big (:filesize MB). Max filesize: :maxfilesize MB.',
+                dictInvalidFileType: config.messages.dictInvalidFileType || 'You cannot upload files of this type.',
+                dictResponseError: config.messages.dictResponseError || 'Server responded with :statusCode code.',
+                dictMaxFilesExceeded: config.messages.dictMaxFilesExceeded || 'You cannot upload any more files.',
 
                 // Override file type validation
                 accept: function(file, done) {
@@ -105,18 +166,36 @@
                 init: function() {
                     const dz = this;
 
-                    // Client-side validation function
-                    function validateFile(file) {
+                    // Enhanced client-side validation function
+                    async function validateFile(file) {
                         const errors = [];
-
-                        // Check file size
-                        if (file.size > config.maxFilesize * 1024 * 1024) {
-                            errors.push('File is too large');
+                        
+                        // Skip validation if disabled
+                        if (!config.validation.enabled) {
+                            return [];
                         }
 
-                        // Check file type
-                        if (config.acceptedFiles) {
-                            const acceptedTypes = config.acceptedFiles.split(',').map(type => type.trim());
+                        // Parse and apply validation rules
+                        if (config.validation.rules && config.validation.rules.length > 0) {
+                            for (const rule of config.validation.rules) {
+                                const ruleError = await applyValidationRule(file, rule);
+                                if (ruleError) {
+                                    errors.push(ruleError);
+                                }
+                            }
+                        }
+
+                        // Legacy validation for backward compatibility
+                        if (file.size > config.maxSize * 1024 * 1024) {
+                            errors.push(`File is too large. Maximum size: ${config.maxSize}MB`);
+                        }
+
+                        if (config.minSize && file.size < config.minSize * 1024 * 1024) {
+                            errors.push(`File is too small. Minimum size: ${config.minSize}MB`);
+                        }
+
+                        if (config.accept) {
+                            const acceptedTypes = config.accept.split(',').map(type => type.trim());
                             let isValidType = false;
 
                             for (const acceptedType of acceptedTypes) {
@@ -173,54 +252,333 @@
                         return true;
                     }
 
-                    // Add existing files as mock files
-                    existingFiles.forEach(function(filePath, index) {
-                        const fileName = filePath.split('/').pop();
-                        const mockFile = {
-                            name: fileName,
-                            size: 0,
-                            accepted: true,
-                            processing: false,
-                            upload: {
-                                progress: 100
-                            },
-                            status: Dropzone.SUCCESS,
-                            tempPath: filePath,
-                            isExisting: true
-                        };
+                    // Apply individual validation rule
+                    async function applyValidationRule(file, rule) {
+                        if (typeof rule !== 'string') return null;
+                        
+                        const [ruleName, ruleValue] = rule.includes(':') ? rule.split(':', 2) : [rule, null];
+                        
+                        switch (ruleName) {
+                            case 'required':
+                                // Required validation handled at form level
+                                return null;
+                                
+                            case 'image':
+                                if (!file.type.startsWith('image/')) {
+                                    return 'File must be an image';
+                                }
+                                return null;
+                                
+                            case 'mimes':
+                                if (ruleValue) {
+                                    const allowedMimes = ruleValue.split(',').map(ext => ext.trim());
+                                    const fileExt = getFileExtension(file.name);
+                                    if (!allowedMimes.includes(fileExt)) {
+                                        return `File type not allowed. Allowed types: ${allowedMimes.join(', ')}`;
+                                    }
+                                }
+                                return null;
+                                
+                            case 'max':
+                                if (ruleValue) {
+                                    const maxSizeKB = parseInt(ruleValue);
+                                    if (file.size > maxSizeKB * 1024) {
+                                        return `File too large. Maximum size: ${formatFileSize(maxSizeKB * 1024)}`;
+                                    }
+                                }
+                                return null;
+                                
+                            case 'min':
+                                if (ruleValue) {
+                                    const minSizeKB = parseInt(ruleValue);
+                                    if (file.size < minSizeKB * 1024) {
+                                        return `File too small. Minimum size: ${formatFileSize(minSizeKB * 1024)}`;
+                                    }
+                                }
+                                return null;
+                                
+                            case 'size':
+                                if (ruleValue) {
+                                    const exactSizeKB = parseInt(ruleValue);
+                                    if (file.size !== exactSizeKB * 1024) {
+                                        return `File must be exactly ${formatFileSize(exactSizeKB * 1024)}`;
+                                    }
+                                }
+                                return null;
+                                
+                            case 'dimensions':
+                                // Dimensions validation requires image loading
+                                if (file.type.startsWith('image/') && ruleValue) {
+                                    return await validateImageDimensions(file, ruleValue);
+                                }
+                                return null;
+                                
+                            case 'file':
+                                // Generic file validation (always passes for file objects)
+                                return null;
+                                
+                            case 'mimetypes':
+                                if (ruleValue) {
+                                    const allowedMimeTypes = ruleValue.split(',').map(type => type.trim());
+                                    if (!allowedMimeTypes.includes(file.type)) {
+                                        return `File MIME type not allowed. Allowed types: ${allowedMimeTypes.join(', ')}`;
+                                    }
+                                }
+                                return null;
+                                
+                            case 'between':
+                                if (ruleValue) {
+                                    const [minSize, maxSize] = ruleValue.split(',').map(size => parseInt(size.trim()));
+                                    const fileSizeKB = Math.round(file.size / 1024);
+                                    if (fileSizeKB < minSize || fileSizeKB > maxSize) {
+                                        return `File size must be between ${formatFileSize(minSize * 1024)} and ${formatFileSize(maxSize * 1024)}`;
+                                    }
+                                }
+                                return null;
+                                
+                            default:
+                                if (config.debug) {
+                                    console.warn('Unknown validation rule:', ruleName);
+                                }
+                                return null;
+                        }
+                    }
 
-                        dz.emit('addedfile', mockFile);
-                        dz.emit('complete', mockFile);
+                    // Validate image dimensions (async)
+                    function validateImageDimensions(file, dimensionRule) {
+                        return new Promise((resolve) => {
+                            const img = new Image();
+                            const url = URL.createObjectURL(file);
+                            
+                            img.onload = function() {
+                                URL.revokeObjectURL(url);
+                                const dimensions = parseDimensionRule(dimensionRule);
+                                const errors = [];
+                                
+                                if (dimensions.min_width && img.width < dimensions.min_width) {
+                                    errors.push(`Image width too small. Minimum: ${dimensions.min_width}px`);
+                                }
+                                if (dimensions.max_width && img.width > dimensions.max_width) {
+                                    errors.push(`Image width too large. Maximum: ${dimensions.max_width}px`);
+                                }
+                                if (dimensions.min_height && img.height < dimensions.min_height) {
+                                    errors.push(`Image height too small. Minimum: ${dimensions.min_height}px`);
+                                }
+                                if (dimensions.max_height && img.height > dimensions.max_height) {
+                                    errors.push(`Image height too large. Maximum: ${dimensions.max_height}px`);
+                                }
+                                if (dimensions.width && img.width !== dimensions.width) {
+                                    errors.push(`Image width must be exactly ${dimensions.width}px`);
+                                }
+                                if (dimensions.height && img.height !== dimensions.height) {
+                                    errors.push(`Image height must be exactly ${dimensions.height}px`);
+                                }
+                                if (dimensions.ratio) {
+                                    const actualRatio = img.width / img.height;
+                                    if (Math.abs(actualRatio - dimensions.ratio) > 0.01) {
+                                        errors.push(`Image aspect ratio must be ${dimensions.ratio}`);
+                                    }
+                                }
+                                
+                                resolve(errors.join('; ') || null);
+                            };
+                            
+                            img.onerror = function() {
+                                URL.revokeObjectURL(url);
+                                resolve('Invalid image file');
+                            };
+                            
+                            img.src = url;
+                        });
+                    }
 
-                        // Add file icon if needed
-                        if (mockFile.previewElement) {
-                            const extension = fileName.split('.').pop().toLowerCase();
-                            const iconSvg = getFileIconSvg(extension);
-                            const imageElement = mockFile.previewElement.querySelector('.dz-image');
-                            if (imageElement && (!mockFile.type || !mockFile.type.startsWith('image/'))) {
-                                imageElement.innerHTML = iconSvg;
+                    // Parse dimension rule string
+                    function parseDimensionRule(dimensionRule) {
+                        const dimensions = {};
+                        const parts = dimensionRule.split(',');
+                        
+                        for (const part of parts) {
+                            const [key, value] = part.split('=');
+                            if (key && value) {
+                                dimensions[key.trim()] = parseFloat(value.trim());
                             }
                         }
+                        
+                        return dimensions;
+                    }
 
-                        // Add remove functionality for existing files
-                        const removeButton = mockFile.previewElement ? mockFile.previewElement
-                            .querySelector('.dz-remove') : null;
-                        if (removeButton) {
-                            removeButton.addEventListener('click', function(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                dz.removeFile(mockFile);
-                            });
-                        }
+                    // Helper functions
+                    function getFileExtension(filename) {
+                        return filename.toLowerCase().split('.').pop();
+                    }
 
-                        // Add custom styling classes
-                        if (mockFile.previewElement) {
-                            mockFile.previewElement.classList.add('filex-preview-existing');
+                    function formatFileSize(bytes) {
+                        if (bytes >= 1048576) {
+                            return Math.round(bytes / 1048576 * 100) / 100 + ' MB';
+                        } else if (bytes >= 1024) {
+                            return Math.round(bytes / 1024 * 100) / 100 + ' KB';
                         }
+                        return bytes + ' bytes';
+                    }
+
+                    function getEstimatedFileSize(extension) {
+                        // Provide reasonable estimates based on file types
+                        const sizeEstimates = {
+                            // Images
+                            'jpg': 500000, 'jpeg': 500000, 'png': 800000, 'gif': 300000, 'bmp': 2000000, 'webp': 400000, 'svg': 50000,
+                            // Documents
+                            'pdf': 1000000, 'doc': 500000, 'docx': 500000, 'txt': 10000, 'rtf': 100000,
+                            // Videos (smaller estimates for temp files)
+                            'mp4': 5000000, 'avi': 8000000, 'mov': 6000000, 'wmv': 4000000, 'flv': 3000000, 'webm': 4000000,
+                            // Audio
+                            'mp3': 3000000, 'wav': 10000000, 'ogg': 2500000, 'aac': 2000000, 'flac': 8000000,
+                            // Archives
+                            'zip': 2000000, 'rar': 2000000, '7z': 1500000, 'tar': 2500000,
+                            // Default
+                            'default': 100000
+                        };
+                        
+                        return sizeEstimates[extension] || sizeEstimates['default'];
+                    }
+
+                    // Add existing files as mock files after Dropzone is ready
+                    console.log('Filex Debug - Setting up Dropzone init event');
+                    dz.on('init', function() {
+                        console.log('Filex Debug - Dropzone init event fired, existingFiles:', existingFiles);
+                        existingFiles.forEach(function(filePath, index) {
+                            console.log('Filex Debug - Processing file:', filePath);
+                            const fileName = filePath.split('/').pop();
+                            const extension = fileName.split('.').pop().toLowerCase();
+                            
+                            // Determine file type based on extension
+                            let fileType = '';
+                            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+                            const documentExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
+                            const videoExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'];
+                            const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'flac'];
+                            
+                            if (imageExtensions.includes(extension)) {
+                                fileType = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
+                            } else if (documentExtensions.includes(extension)) {
+                                fileType = 'application/' + extension;
+                            } else if (videoExtensions.includes(extension)) {
+                                fileType = 'video/' + extension;
+                            } else if (audioExtensions.includes(extension)) {
+                                fileType = 'audio/' + extension;
+                            } else {
+                                fileType = 'application/octet-stream';
+                            }
+                            
+                            const mockFile = {
+                                name: fileName,
+                                size: 0, // Will be updated asynchronously
+                                type: fileType,
+                                accepted: true,
+                                processing: false,
+                                upload: {
+                                    progress: 100
+                                },
+                                status: Dropzone.SUCCESS,
+                                tempPath: filePath,
+                                isExisting: true
+                            };
+
+                            // Try to get file size from server if routes are available
+                            if (window.filexRoutes && window.filexRoutes.fileInfo) {
+                                const fileInfoUrl = window.filexRoutes.fileInfo.replace('__FILEPATH__', encodeURIComponent(filePath));
+                                fetch(fileInfoUrl, {
+                                    method: 'GET',
+                                    headers: {
+                                        'X-CSRF-TOKEN': getCSRFToken()
+                                    }
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success && data.size) {
+                                        mockFile.size = data.size;
+                                        // Update the size display in the preview
+                                        if (mockFile.previewElement) {
+                                            const sizeElement = mockFile.previewElement.querySelector('.dz-size span');
+                                            if (sizeElement) {
+                                                sizeElement.textContent = formatFileSize(data.size);
+                                            }
+                                        }
+                                    }
+                                })
+                                .catch(error => {
+                                    // Fallback to estimated size based on file type
+                                    mockFile.size = getEstimatedFileSize(extension);
+                                    if (mockFile.previewElement) {
+                                        const sizeElement = mockFile.previewElement.querySelector('.dz-size span');
+                                        if (sizeElement) {
+                                            sizeElement.textContent = formatFileSize(mockFile.size);
+                                        }
+                                    }
+                                });
+                            } else {
+                                // Fallback to estimated size based on file type
+                                mockFile.size = getEstimatedFileSize(extension);
+                            }
+
+                            dz.emit('addedfile', mockFile);
+                            dz.emit('complete', mockFile);
+
+                            // Add file icon for non-image files
+                            if (mockFile.previewElement) {
+                                const imageElement = mockFile.previewElement.querySelector('.dz-image');
+                                if (imageElement && !fileType.startsWith('image/')) {
+                                    const iconSvg = getFileIconSvg(extension);
+                                    imageElement.innerHTML = iconSvg;
+                                }
+                                
+                                // Hide progress bar for existing files
+                                const progressElement = mockFile.previewElement.querySelector('.dz-progress');
+                                if (progressElement) {
+                                    progressElement.style.display = 'none';
+                                }
+                                
+                                // Remove any error styling
+                                mockFile.previewElement.classList.remove('dz-error', 'dz-processing');
+                                mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
+                                
+                                // Hide error elements
+                                const errorElement = mockFile.previewElement.querySelector('.dz-error-message');
+                                if (errorElement) {
+                                    errorElement.style.display = 'none';
+                                }
+                                
+                                // Show success mark
+                                const successMark = mockFile.previewElement.querySelector('.dz-success-mark');
+                                if (successMark) {
+                                    successMark.style.display = 'flex';
+                                    successMark.style.visibility = 'visible';
+                                    successMark.style.opacity = '1';
+                                }
+                                
+                                // Hide error mark
+                                const errorMark = mockFile.previewElement.querySelector('.dz-error-mark');
+                                if (errorMark) {
+                                    errorMark.style.display = 'none';
+                                    errorMark.style.visibility = 'hidden';
+                                    errorMark.style.opacity = '0';
+                                }
+                            }
+
+                            // Add remove functionality for existing files
+                            const removeButton = mockFile.previewElement ? mockFile.previewElement
+                                .querySelector('.dz-remove') : null;
+                            if (removeButton) {
+                                removeButton.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    dz.removeFile(mockFile);
+                                });
+                            }
+                        });
                     });
 
                     // File added event
-                    dz.on('addedfile', function(file) {
+                    dz.on('addedfile', async function(file) {
                         // Add custom styling classes for new files
                         if (file.previewElement && !file.isExisting) {
                             file.previewElement.classList.add('filex-preview-new');
@@ -243,9 +601,39 @@
                             file.previewElement.appendChild(errorMark);
                         }
 
-                        // Perform client-side validation
-                        if (!file.isExisting && !validateFile(file)) {
-                            return;
+                        // Perform client-side validation (async for image dimensions)
+                        if (!file.isExisting) {
+                            const validationErrors = await validateFile(file);
+                            if (validationErrors && validationErrors.length > 0) {
+                                // Apply error state
+                                if (file.previewElement) {
+                                    file.previewElement.classList.add('dz-error');
+                                    const errorElement = file.previewElement.querySelector('.dz-error-message');
+                                    if (errorElement) {
+                                        errorElement.textContent = validationErrors.join(', ');
+                                    }
+
+                                    // Show error mark
+                                    const errorMark = file.previewElement.querySelector('.dz-error-mark');
+                                    const successMark = file.previewElement.querySelector('.dz-success-mark');
+
+                                    if (errorMark) {
+                                        errorMark.style.display = 'flex';
+                                        errorMark.style.visibility = 'visible';
+                                        errorMark.style.opacity = '1';
+                                    }
+
+                                    if (successMark) {
+                                        successMark.style.display = 'none';
+                                        successMark.style.visibility = 'hidden';
+                                        successMark.style.opacity = '0';
+                                    }
+                                }
+                                
+                                // Don't process invalid files
+                                dz.removeFile(file);
+                                return;
+                            }
                         }
 
                         if (file.status !== Dropzone.SUCCESS && !file.isExisting) {
@@ -343,7 +731,14 @@
                                 }
                             }
 
-                            uploadedFiles.push(response.tempPath);
+                            // Add to uploaded files only if not already present (prevent duplicates)
+                            if (!uploadedFiles.includes(response.tempPath)) {
+                                uploadedFiles.push(response.tempPath);
+                                console.log('Filex Debug - Added new file to uploadedFiles:', response.tempPath);
+                            } else {
+                                console.log('Filex Debug - File already in uploadedFiles, skipping:', response.tempPath);
+                            }
+                            console.log('Filex Debug - Current uploadedFiles array:', uploadedFiles);
                             updateHiddenInputs();
 
                             // Remove from failed files if it was there
@@ -477,8 +872,59 @@
                 }
             };
 
+            // Check if Dropzone is already initialized on this element
+            if (filexElement.dropzone) {
+                return;
+            }
+
+            // Mark element as being initialized to prevent double initialization
+            filexElement.setAttribute('data-filex-initialized', 'true');
+
             // Initialize Dropzone
             const myFilex = new Dropzone(filexElement, dropzoneConfig);
+
+            // Process existing files immediately after Dropzone creation
+            console.log('Filex Debug - Processing existing files after Dropzone creation:', existingFiles);
+            if (existingFiles && existingFiles.length > 0) {
+                existingFiles.forEach(function(filePath, index) {
+                    console.log('Filex Debug - Adding existing file:', filePath);
+                    const fileName = filePath.split('/').pop();
+                    const extension = fileName.split('.').pop().toLowerCase();
+                    
+                    // Determine file type based on extension
+                    let fileType = '';
+                    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+                    if (imageExtensions.includes(extension)) {
+                        fileType = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
+                    } else {
+                        fileType = 'application/octet-stream';
+                    }
+                    
+                    const mockFile = {
+                        name: fileName,
+                        size: 50000, // Default size
+                        type: fileType,
+                        accepted: true,
+                        processing: false,
+                        upload: { progress: 100 },
+                        status: Dropzone.SUCCESS,
+                        tempPath: filePath,
+                        isExisting: true
+                    };
+
+                    console.log('Filex Debug - Created mock file:', mockFile);
+                    myFilex.emit('addedfile', mockFile);
+                    myFilex.emit('complete', mockFile);
+                    
+                    setTimeout(function() {
+                        if (mockFile.previewElement) {
+                            console.log('Filex Debug - Styling preview element');
+                            mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
+                            mockFile.previewElement.classList.remove('dz-error', 'dz-processing');
+                        }
+                    }, 100);
+                });
+            }
 
             // Add event delegation for remove and retry buttons
             filexElement.addEventListener('click', function(e) {
@@ -545,15 +991,22 @@
             function updateHiddenInputs() {
                 if (!hiddenInputsContainer) return;
 
-                // Clear existing hidden inputs (except existing files)
+                // Get existing file paths from existing inputs
                 const existingInputs = hiddenInputsContainer.querySelectorAll('.existing-file-input');
-                hiddenInputsContainer.innerHTML = '';
+                const existingFilePaths = Array.from(existingInputs).map(input => input.value);
 
-                // Re-add existing file inputs
-                existingInputs.forEach(input => hiddenInputsContainer.appendChild(input));
+                // Clear all uploaded file inputs (keep existing file inputs)
+                const uploadedInputs = hiddenInputsContainer.querySelectorAll('.uploaded-file-input');
+                uploadedInputs.forEach(input => input.remove());
 
-                // Add new file inputs
-                uploadedFiles.forEach(function(filePath) {
+                // Add inputs only for newly uploaded files (not existing ones)
+                const uniqueUploadedFiles = [...new Set(uploadedFiles)]; // Remove duplicates
+                uniqueUploadedFiles.forEach(function(filePath) {
+                    // Skip if this file is already in existing inputs
+                    if (existingFilePaths.includes(filePath)) {
+                        return;
+                    }
+                    
                     const input = document.createElement('input');
                     input.type = 'hidden';
                     input.name = hiddenInputName;
