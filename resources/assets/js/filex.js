@@ -12,10 +12,20 @@
 (function(window, document) {
     'use strict';
 
+// Filex JavaScript functionality
+
     /**
      * Initialize Filex uploader instances
      */
     function initializeFilex() {
+        
+        
+        // Prevent double initialization
+        if (window.filexInitialized) {
+            return;
+        }
+        window.filexInitialized = true;
+        
         // Check if Dropzone is available
         if (typeof Dropzone === 'undefined') {
             console.error('Dropzone.js library not loaded');
@@ -28,12 +38,16 @@
         // Find all filex uploader elements
         const filexElements = document.querySelectorAll('.filex-uploader[data-component-id]');
         
+        
+        
         if (filexElements.length === 0) {
             return;
         }
         
         filexElements.forEach(function(filexElement) {
             const componentId = filexElement.dataset.componentId;
+            
+            
             
             // Skip if already initialized
             if (filexElement.getAttribute('data-filex-initialized') === 'true' || filexElement.dropzone) {
@@ -109,11 +123,7 @@
             const existingFilesFromConfig = config.existingFiles || [];
             const existingFiles = [...existingFilesFromInputs, ...existingFilesFromConfig].filter(Boolean);
             
-            // Debug logging
-            console.log('Filex Debug - Config:', config);
-            console.log('Filex Debug - Existing files from inputs:', existingFilesFromInputs);
-            console.log('Filex Debug - Existing files from config:', existingFilesFromConfig);
-            console.log('Filex Debug - Combined existing files:', existingFiles);
+            
             
             // Initialize uploadedFiles with existing files (don't duplicate)
             if (existingFiles && existingFiles.length > 0) {
@@ -439,14 +449,15 @@
                         };
                         
                         return sizeEstimates[extension] || sizeEstimates['default'];
-                    }
-
-                    // Add existing files as mock files after Dropzone is ready
-                    console.log('Filex Debug - Setting up Dropzone init event');
+                    }                                    // Add existing files as mock files after Dropzone is ready
                     dz.on('init', function() {
-                        console.log('Filex Debug - Dropzone init event fired, existingFiles:', existingFiles);
+                        
+                        if (!existingFiles || existingFiles.length === 0) {
+                            return;
+                        }
+                        
                         existingFiles.forEach(function(filePath, index) {
-                            console.log('Filex Debug - Processing file:', filePath);
+                            
                             const fileName = filePath.split('/').pop();
                             const extension = fileName.split('.').pop().toLowerCase();
                             
@@ -471,7 +482,7 @@
                             
                             const mockFile = {
                                 name: fileName,
-                                size: 0, // Will be updated asynchronously
+                                size: getEstimatedFileSize(extension), // Set estimated size immediately
                                 type: fileType,
                                 accepted: true,
                                 processing: false,
@@ -520,49 +531,58 @@
                                 mockFile.size = getEstimatedFileSize(extension);
                             }
 
+                            
                             dz.emit('addedfile', mockFile);
                             dz.emit('complete', mockFile);
 
-                            // Add file icon for non-image files
-                            if (mockFile.previewElement) {
-                                const imageElement = mockFile.previewElement.querySelector('.dz-image');
-                                if (imageElement && !fileType.startsWith('image/')) {
-                                    const iconSvg = getFileIconSvg(extension);
-                                    imageElement.innerHTML = iconSvg;
+                            // Wait for preview element to be created, then process it
+                            setTimeout(function() {
+                                if (mockFile.previewElement) {
+                                    
+                                    
+                                    // For existing files, always show file icon (no image loading)
+                                    const imageElement = mockFile.previewElement.querySelector('.dz-image');
+                                    if (imageElement) {
+                                        
+                                        const iconSvg = getFileIconSvg(extension);
+                                        imageElement.innerHTML = iconSvg;
+                                    }
+                                    
+                                    // Hide progress bar for existing files
+                                    const progressElement = mockFile.previewElement.querySelector('.dz-progress');
+                                    if (progressElement) {
+                                        progressElement.style.display = 'none';
+                                    }
+                                    
+                                    // Remove any error styling
+                                    mockFile.previewElement.classList.remove('dz-error', 'dz-processing');
+                                    mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
+                                    
+                                    // Hide error elements
+                                    const errorElement = mockFile.previewElement.querySelector('.dz-error-message');
+                                    if (errorElement) {
+                                        errorElement.style.display = 'none';
+                                    }
+                                    
+                                    // Show success mark
+                                    const successMark = mockFile.previewElement.querySelector('.dz-success-mark');
+                                    if (successMark) {
+                                        successMark.style.display = 'flex';
+                                        successMark.style.visibility = 'visible';
+                                        successMark.style.opacity = '1';
+                                    }
+                                    
+                                    // Hide error mark
+                                    const errorMark = mockFile.previewElement.querySelector('.dz-error-mark');
+                                    if (errorMark) {
+                                        errorMark.style.display = 'none';
+                                        errorMark.style.visibility = 'hidden';
+                                        errorMark.style.opacity = '0';
+                                    }
+                                } else {
+                                    
                                 }
-                                
-                                // Hide progress bar for existing files
-                                const progressElement = mockFile.previewElement.querySelector('.dz-progress');
-                                if (progressElement) {
-                                    progressElement.style.display = 'none';
-                                }
-                                
-                                // Remove any error styling
-                                mockFile.previewElement.classList.remove('dz-error', 'dz-processing');
-                                mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
-                                
-                                // Hide error elements
-                                const errorElement = mockFile.previewElement.querySelector('.dz-error-message');
-                                if (errorElement) {
-                                    errorElement.style.display = 'none';
-                                }
-                                
-                                // Show success mark
-                                const successMark = mockFile.previewElement.querySelector('.dz-success-mark');
-                                if (successMark) {
-                                    successMark.style.display = 'flex';
-                                    successMark.style.visibility = 'visible';
-                                    successMark.style.opacity = '1';
-                                }
-                                
-                                // Hide error mark
-                                const errorMark = mockFile.previewElement.querySelector('.dz-error-mark');
-                                if (errorMark) {
-                                    errorMark.style.display = 'none';
-                                    errorMark.style.visibility = 'hidden';
-                                    errorMark.style.opacity = '0';
-                                }
-                            }
+                            }, 300);
 
                             // Add remove functionality for existing files
                             const removeButton = mockFile.previewElement ? mockFile.previewElement
@@ -734,11 +754,7 @@
                             // Add to uploaded files only if not already present (prevent duplicates)
                             if (!uploadedFiles.includes(response.tempPath)) {
                                 uploadedFiles.push(response.tempPath);
-                                console.log('Filex Debug - Added new file to uploadedFiles:', response.tempPath);
-                            } else {
-                                console.log('Filex Debug - File already in uploadedFiles, skipping:', response.tempPath);
                             }
-                            console.log('Filex Debug - Current uploadedFiles array:', uploadedFiles);
                             updateHiddenInputs();
 
                             // Remove from failed files if it was there
@@ -880,20 +896,34 @@
             // Mark element as being initialized to prevent double initialization
             filexElement.setAttribute('data-filex-initialized', 'true');
 
+            
+
             // Initialize Dropzone
             const myFilex = new Dropzone(filexElement, dropzoneConfig);
+            
+            
 
-            // Process existing files immediately after Dropzone creation
-            console.log('Filex Debug - Processing existing files after Dropzone creation:', existingFiles);
+            // Process existing files immediately (fallback if init event doesn't fire)
             if (existingFiles && existingFiles.length > 0) {
-                existingFiles.forEach(function(filePath, index) {
-                    console.log('Filex Debug - Adding existing file:', filePath);
+                
+                setTimeout(function() {
+                    processExistingFiles(myFilex, existingFiles);
+                }, 100);
+            }
+
+            // Function to process existing files
+            function processExistingFiles(dz, fileList) {
+                
+                
+                fileList.forEach(function(filePath, index) {
+                    
                     const fileName = filePath.split('/').pop();
                     const extension = fileName.split('.').pop().toLowerCase();
                     
                     // Determine file type based on extension
                     let fileType = '';
                     const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+                    
                     if (imageExtensions.includes(extension)) {
                         fileType = 'image/' + (extension === 'jpg' ? 'jpeg' : extension);
                     } else {
@@ -902,7 +932,7 @@
                     
                     const mockFile = {
                         name: fileName,
-                        size: 50000, // Default size
+                        size: 500000, // Default size
                         type: fileType,
                         accepted: true,
                         processing: false,
@@ -912,17 +942,39 @@
                         isExisting: true
                     };
 
-                    console.log('Filex Debug - Created mock file:', mockFile);
-                    myFilex.emit('addedfile', mockFile);
-                    myFilex.emit('complete', mockFile);
                     
+                    
+                    // Add file to Dropzone
+                    dz.emit('addedfile', mockFile);
+                    dz.emit('complete', mockFile);
+                    
+                    // Process preview immediately
                     setTimeout(function() {
                         if (mockFile.previewElement) {
-                            console.log('Filex Debug - Styling preview element');
-                            mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
+                            
+                            
+                            // For existing files, always show just a file icon instead of loading the image
+                            const imageElement = mockFile.previewElement.querySelector('.dz-image');
+                            if (imageElement) {
+                                
+                                
+                                // Always show file icon for existing files
+                                const extension = fileName.split('.').pop().toLowerCase();
+                                const iconSvg = getFileIconSvg(extension);
+                                imageElement.innerHTML = iconSvg;
+                            }
+                            
+                            // Style the preview as successful
                             mockFile.previewElement.classList.remove('dz-error', 'dz-processing');
+                            mockFile.previewElement.classList.add('dz-success', 'filex-preview-existing');
+                            
+                            // Hide progress bar
+                            const progressElement = mockFile.previewElement.querySelector('.dz-progress');
+                            if (progressElement) {
+                                progressElement.style.display = 'none';
+                            }
                         }
-                    }, 100);
+                    }, 200);
                 });
             }
 
