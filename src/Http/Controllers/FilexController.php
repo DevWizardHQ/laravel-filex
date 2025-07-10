@@ -93,24 +93,43 @@ class FilexController extends Controller
             mkdir($chunkDir, 0755, true);
         }
         
-        // Use streaming to store chunk
-        $fileStream = fopen($file->getRealPath(), 'rb');
-        $chunkStream = fopen($chunkFullPath, 'wb');
-        
-        if (!$fileStream || !$chunkStream) {
-            throw new \RuntimeException('Could not open files for chunk streaming');
-        }
-        
         try {
-            // Stream copy in 8KB chunks
-            while (!feof($fileStream)) {
-                $data = fread($fileStream, 8192);
-                if ($data === false) break;
-                fwrite($chunkStream, $data);
+            // Use streaming to store chunk
+            $fileStream = fopen($file->getRealPath(), 'rb');
+            $chunkStream = fopen($chunkFullPath, 'wb');
+            
+            if (!$fileStream || !$chunkStream) {
+                throw new \RuntimeException('Could not open files for chunk streaming');
             }
-        } finally {
-            if ($fileStream) fclose($fileStream);
-            if ($chunkStream) fclose($chunkStream);
+            
+            try {
+                // Stream copy in 8KB chunks
+                while (!feof($fileStream)) {
+                    $data = fread($fileStream, 8192);
+                    if ($data === false) break;
+                    fwrite($chunkStream, $data);
+                }
+            } finally {
+                if ($fileStream) fclose($fileStream);
+                if ($chunkStream) fclose($chunkStream);
+            }
+        } catch (\Exception $e) {
+            // Clean up partial chunk on error
+            if (file_exists($chunkFullPath)) {
+                unlink($chunkFullPath);
+            }
+            
+            Log::error('Chunk upload error', [
+                'uuid' => $uuid,
+                'chunk_index' => $chunkIndex,
+                'error' => $e->getMessage()
+            ]);
+            
+            return $this->errorResponse(
+                "Failed to upload chunk {$chunkIndex}. Please try again.", 
+                500, 
+                'chunk_upload_error'
+            );
         }
 
         // Check if all chunks are uploaded
@@ -121,41 +140,66 @@ class FilexController extends Controller
             ->count();
 
         if ($uploadedChunks === $totalChunks) {
-            // All chunks uploaded, merge them using streaming
-            $finalFileName = $this->filexService->generateFileName($originalFileName);
-            $finalPath = 'temp/' . $finalFileName;
+            try {
+                // All chunks uploaded, merge them using streaming
+                $finalFileName = $this->filexService->generateFileName($originalFileName);
+                $finalPath = 'temp/' . $finalFileName;
 
-            // Use streaming to merge chunks to avoid memory exhaustion
-            $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
+                // Use streaming to merge chunks to avoid memory exhaustion
+                $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
 
-            // Clean up chunks
-            $tempDisk->deleteDirectory($tempDir);
+                // Clean up chunks
+                $tempDisk->deleteDirectory($tempDir);
 
-            // Validate merged file
-            $validation = $this->filexService->validateTemp($finalPath, $originalFileName);
-            if (!$validation['valid']) {
-                $tempDisk->delete($finalPath);
+                // Validate merged file
+                $validation = $this->filexService->validateTemp($finalPath, $originalFileName);
+                if (!$validation['valid']) {
+                    $tempDisk->delete($finalPath);
+                    return response()->json([
+                        'success' => false,
+                        'message' => $validation['message'] ?? 'File validation failed after upload',
+                        'error_type' => 'validation_error',
+                        'timestamp' => now()->toISOString()
+                    ], 422);
+                }
+
+                // Mark file with metadata
+                $this->filexService->markTemp($finalPath, [
+                    'original_name' => $originalFileName,
+                    'uploaded_at' => now(),
+                    'user_id' => Auth::check() ? Auth::id() : null,
+                    'session_id' => session()->getId(),
+                ]);
+
                 return response()->json([
-                    'success' => false,
-                    'message' => $validation['message']
-                ], 422);
+                    'success' => true,
+                    'tempPath' => $finalPath,
+                    'originalName' => $originalFileName,
+                    'size' => $tempDisk->size($finalPath),
+                    'message' => 'File uploaded successfully',
+                    'upload_type' => 'chunked',
+                    'total_chunks' => $totalChunks,
+                    'timestamp' => now()->toISOString()
+                ]);
+            } catch (\Exception $e) {
+                // Clean up on merge failure
+                $tempDisk->deleteDirectory($tempDir);
+                if (isset($finalPath)) {
+                    $tempDisk->delete($finalPath);
+                }
+                
+                Log::error('Chunk merge error', [
+                    'uuid' => $uuid,
+                    'total_chunks' => $totalChunks,
+                    'error' => $e->getMessage()
+                ]);
+                
+                return $this->errorResponse(
+                    'Failed to merge uploaded chunks. Please try uploading the file again.', 
+                    500, 
+                    'chunk_merge_error'
+                );
             }
-
-            // Mark file with metadata
-            $this->filexService->markTemp($finalPath, [
-                'original_name' => $originalFileName,
-                'uploaded_at' => now(),
-                'user_id' => Auth::check() ? Auth::id() : null,
-                'session_id' => session()->getId(),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'tempPath' => $finalPath,
-                'originalName' => $originalFileName,
-                'size' => $tempDisk->size($finalPath),
-                'message' => 'File uploaded successfully'
-            ]);
         }
 
         // Return partial success for chunk upload
@@ -163,7 +207,10 @@ class FilexController extends Controller
             'success' => true,
             'chunk' => $chunkIndex,
             'totalChunks' => $totalChunks,
-            'message' => 'Chunk uploaded successfully'
+            'progress' => round(($chunkIndex + 1) / $totalChunks * 100, 2),
+            'message' => "Chunk {$chunkIndex} of {$totalChunks} uploaded successfully",
+            'upload_type' => 'chunk_partial',
+            'timestamp' => now()->toISOString()
         ]);
     }
 
@@ -191,7 +238,9 @@ class FilexController extends Controller
                 empty($filename)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid file path'
+                    'message' => 'Invalid file path. File deletion not allowed.',
+                    'error_type' => 'security_error',
+                    'timestamp' => now()->toISOString()
                 ], 403);
             }
 
@@ -200,8 +249,20 @@ class FilexController extends Controller
             if ($metadata && $metadata['user_id'] !== Auth::id() && $metadata['session_id'] !== session()->getId()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'You do not have permission to delete this file.',
+                    'error_type' => 'authorization_error',
+                    'timestamp' => now()->toISOString()
                 ], 403);
+            }
+
+            // Check if file exists before attempting deletion
+            if (!$this->getTempDisk()->exists($tempPath)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File not found or already deleted.',
+                    'error_type' => 'file_not_found',
+                    'timestamp' => now()->toISOString()
+                ], 404);
             }
 
             // Delete file and metadata
@@ -209,18 +270,24 @@ class FilexController extends Controller
 
             return response()->json([
                 'success' => $deleted,
-                'message' => $deleted ? 'File deleted successfully' : 'File not found'
+                'message' => $deleted ? 'File deleted successfully' : 'Failed to delete file',
+                'filename' => $filename,
+                'timestamp' => now()->toISOString()
             ]);
 
         } catch (\Exception $e) {
             Log::error('Temp file deletion error: ' . $e->getMessage(), [
                 'temp_path' => $request->input('tempPath'),
-                'user_id' => Auth::check() ? Auth::id() : null
+                'filename' => $filename,
+                'user_id' => Auth::check() ? Auth::id() : null,
+                'exception' => $e->getTraceAsString()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Deletion failed'
+                'message' => 'An error occurred while deleting the file. Please try again.',
+                'error_type' => 'server_error',
+                'timestamp' => now()->toISOString()
             ], 500);
         }
     }
@@ -240,7 +307,9 @@ class FilexController extends Controller
             empty($filename)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid file path'
+                'message' => 'Invalid file path requested.',
+                'error_type' => 'security_error',
+                'timestamp' => now()->toISOString()
             ], 403);
         }
 
@@ -249,7 +318,9 @@ class FilexController extends Controller
         if (!$tempDisk->exists($tempPath)) {
             return response()->json([
                 'success' => false,
-                'message' => 'File not found'
+                'message' => 'File not found or has expired.',
+                'error_type' => 'file_not_found',
+                'timestamp' => now()->toISOString()
             ], 404);
         }
 
@@ -259,7 +330,9 @@ class FilexController extends Controller
             'success' => true,
             'tempPath' => $tempPath,
             'size' => $tempDisk->size($tempPath),
-            'metadata' => $metadata
+            'metadata' => $metadata,
+            'human_readable_size' => $this->formatBytes($tempDisk->size($tempPath)),
+            'timestamp' => now()->toISOString()
         ]);
     }
 
@@ -424,7 +497,12 @@ class FilexController extends Controller
             $chunkThreshold = config('filex.performance.chunk_threshold', 50 * 1024 * 1024); // 50MB
             
             if ($fileSize > $chunkThreshold && !$isChunked) {
-                return $this->errorResponse('File too large for single upload. Please use chunked upload.', 413);
+                $maxSizeMB = round($chunkThreshold / (1024 * 1024), 2);
+                $fileSizeMB = round($fileSize / (1024 * 1024), 2);
+                return $this->errorResponse(
+                    "File size ({$fileSizeMB}MB) exceeds the single upload limit of {$maxSizeMB}MB. Please use the chunked upload feature for large files.", 
+                    413
+                );
             }
 
             return $isChunked 
@@ -480,18 +558,35 @@ class FilexController extends Controller
     protected function validateBasicUpload(Request $request): array
     {
         if (!$request->hasFile('file')) {
-            return ['valid' => false, 'message' => 'No file provided'];
+            return ['valid' => false, 'message' => 'No file was selected for upload. Please choose a file.'];
         }
 
         $file = $request->file('file');
         if (!$file->isValid()) {
-            return ['valid' => false, 'message' => 'Invalid file upload'];
+            $error = $file->getError();
+            $errorMessage = match($error) {
+                UPLOAD_ERR_INI_SIZE => 'File exceeds the maximum allowed size configured on the server',
+                UPLOAD_ERR_FORM_SIZE => 'File exceeds the maximum allowed size for this form',
+                UPLOAD_ERR_PARTIAL => 'File was only partially uploaded. Please try again',
+                UPLOAD_ERR_NO_FILE => 'No file was provided for upload',
+                UPLOAD_ERR_NO_TMP_DIR => 'Server configuration error: Missing temporary folder',
+                UPLOAD_ERR_CANT_WRITE => 'Server configuration error: Cannot write file to disk',
+                UPLOAD_ERR_EXTENSION => 'Upload stopped by a PHP extension',
+                default => 'File upload failed with an unknown error'
+            };
+            
+            return ['valid' => false, 'message' => $errorMessage, 'error_code' => $error];
         }
 
         // Quick size check before heavy validation
         $limits = $this->getEffectiveUploadLimits();
         if ($file->getSize() > $limits['effective_limit']) {
-            return ['valid' => false, 'message' => 'File exceeds size limit'];
+            $maxSizeMB = round($limits['effective_limit'] / (1024 * 1024), 2);
+            $fileSizeMB = round($file->getSize() / (1024 * 1024), 2);
+            return [
+                'valid' => false, 
+                'message' => "File size ({$fileSizeMB}MB) exceeds the maximum allowed size of {$maxSizeMB}MB"
+            ];
         }
 
         return ['valid' => true];
@@ -533,20 +628,114 @@ class FilexController extends Controller
             'tempPath' => $tempPath,
             'originalName' => $originalFileName,
             'size' => $file->getSize(),
-            'message' => 'File uploaded successfully'
+            'human_readable_size' => $this->formatBytes($file->getSize()),
+            'mime_type' => $file->getMimeType(),
+            'upload_type' => 'single',
+            'message' => 'File uploaded successfully',
+            'timestamp' => now()->toISOString()
         ]);
+    }
+
+    /**
+     * Add request context to responses for better debugging
+     */
+    protected function addRequestContext(array $response, Request $request): array
+    {
+        if (config('app.debug', false)) {
+            $response['debug_info'] = [
+                'request_id' => $request->header('X-Request-ID', uniqid()),
+                'user_agent' => $request->userAgent(),
+                'ip_address' => $request->ip(),
+                'timestamp' => now()->toISOString()
+            ];
+        }
+        
+        return $response;
+    }
+
+    /**
+     * Enhanced upload configuration endpoint with rate limiting info
+     */
+    public function getUploadStatus(): JsonResponse
+    {
+        $limits = $this->getEffectiveUploadLimits();
+        
+        return response()->json([
+            'success' => true,
+            'upload_status' => 'available',
+            'limits' => [
+                'max_file_size_mb' => $limits['effective_limit_mb'],
+                'max_chunk_size' => config('filex.chunk.size', 1048576),
+                'max_parallel_uploads' => config('filex.performance.parallel_uploads', 2),
+                'supported_formats' => config('filex.allowed_extensions', []),
+                'chunked_upload_threshold_mb' => round(config('filex.performance.chunk_threshold', 50 * 1024 * 1024) / (1024 * 1024), 2)
+            ],
+            'rate_limiting' => [
+                'enabled' => config('filex.rate_limiting.enabled', false),
+                'requests_per_minute' => config('filex.rate_limiting.ip_limit', 50),
+                'user_requests_per_hour' => config('filex.rate_limiting.user_limit', 100)
+            ],
+            'server_status' => [
+                'disk_space_available' => $this->checkDiskSpace(),
+                'memory_available' => $this->formatBytes(memory_get_usage(true)),
+                'temp_directory_writable' => is_writable(storage_path('app/temp'))
+            ],
+            'timestamp' => now()->toISOString()
+        ]);
+    }
+
+    /**
+     * Check available disk space
+     */
+    protected function checkDiskSpace(): string
+    {
+        $disk = $this->getTempDisk();
+        $path = $disk->path('');
+        
+        if (function_exists('disk_free_space')) {
+            $freeBytes = disk_free_space($path);
+            return $freeBytes ? $this->formatBytes($freeBytes) : 'Unknown';
+        }
+        
+        return 'Unknown';
     }
 
     /**
      * Standardized error response
      */
-    protected function errorResponse(string $message, int $code = 500): JsonResponse
+    protected function errorResponse(string $message, int $code = 500, string $errorType = null): JsonResponse
     {
-        return response()->json([
+        $response = [
             'success' => false,
             'message' => $message,
             'timestamp' => now()->toISOString()
-        ], $code);
+        ];
+
+        if ($errorType) {
+            $response['error_type'] = $errorType;
+        }
+
+        // Add helpful context for specific error codes
+        switch ($code) {
+            case 413:
+                $response['error_type'] = 'file_too_large';
+                $response['help'] = 'Try uploading a smaller file or use chunked upload for large files.';
+                break;
+            case 422:
+                $response['error_type'] = 'validation_error';
+                $response['help'] = 'Please check the file type, size, and other requirements.';
+                break;
+            case 429:
+                $response['error_type'] = 'rate_limit';
+                $response['help'] = 'Please wait a moment before trying again.';
+                break;
+            case 500:
+                $response['error_type'] = 'server_error';
+                $response['help'] = 'Please try again later or contact support if the problem persists.';
+                break;
+        }
+
+        return response()->json($response, $code);
     }
 
     /**
@@ -556,9 +745,44 @@ class FilexController extends Controller
     {
         Log::error('File upload error: ' . $e->getMessage(), [
             'exception' => $e,
-            'request' => $request->all()
+            'request' => $request->all(),
+            'user_id' => Auth::id(),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent()
         ]);
 
-        return $this->errorResponse('Upload failed: ' . $e->getMessage(), 500);
+        // Determine error type based on exception
+        $errorType = 'server_error';
+        $message = 'An error occurred during file upload. Please try again.';
+
+        if (str_contains($e->getMessage(), 'disk space')) {
+            $errorType = 'disk_space_error';
+            $message = 'Insufficient disk space. Please try again later.';
+        } elseif (str_contains($e->getMessage(), 'memory')) {
+            $errorType = 'memory_error';
+            $message = 'File too large to process. Try uploading a smaller file.';
+        } elseif (str_contains($e->getMessage(), 'timeout')) {
+            $errorType = 'timeout_error';
+            $message = 'Upload timed out. Please try again or upload a smaller file.';
+        } elseif (str_contains($e->getMessage(), 'permission')) {
+            $errorType = 'permission_error';
+            $message = 'Server permission error. Please contact support.';
+        }
+
+        return $this->errorResponse($message, 500, $errorType);
+    }
+
+    /**
+     * Format bytes to human readable format
+     */
+    protected function formatBytes(int $bytes, int $precision = 2): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        
+        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
+            $bytes /= 1024;
+        }
+        
+        return round($bytes, $precision) . ' ' . $units[$i];
     }
 }

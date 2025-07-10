@@ -293,6 +293,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Rate Limiting Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for upload rate limiting to prevent abuse.
+    |
+    */
+    'rate_limiting' => [
+        'enabled' => env('FILEX_RATE_LIMITING_ENABLED', true),
+        'ip_limit' => env('FILEX_RATE_IP_LIMIT', 50), // uploads per time window per IP
+        'user_limit' => env('FILEX_RATE_USER_LIMIT', 100), // uploads per time window per user
+        'time_window' => env('FILEX_RATE_TIME_WINDOW', 3600), // time window in seconds (1 hour)
+        'suspend_time' => env('FILEX_RATE_SUSPEND_TIME', 3600), // suspend duration in seconds
+        'message' => env('FILEX_RATE_LIMIT_MESSAGE', 'Too many upload attempts. Please try again later.'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Monitoring and Debugging
     |--------------------------------------------------------------------------
     |

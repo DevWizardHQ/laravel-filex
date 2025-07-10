@@ -58,35 +58,38 @@ class FilexServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
-        // Register custom validation rules
-        $this->registerCustomValidationRules();
-        
-        // Register Blade component
-        Blade::component('filex::components.file-uploader', 'filex-uploader');
-        
-        // Register Blade directive for Filex assets and routes
-        Blade::directive('filexAssets', function () {
-            return '<?php echo view("filex::assets")->render(); ?>';
-        });
-
-        // Publish configuration
-        $this->publishes([
-            __DIR__ . '/../config/filex.php' => config_path('filex.php'),
-        ], 'filex-config');
-
-        // Publish assets
-        $this->publishes([
-            __DIR__ . '/../resources/assets/css/dropzone.min.css' => public_path('vendor/filex/css/dropzone.min.css'),
-            __DIR__ . '/../resources/assets/css/filex.css' => public_path('vendor/filex/css/filex.css'),
-            __DIR__ . '/../resources/assets/js/dropzone.min.js' => public_path('vendor/filex/js/dropzone.min.js'),
-            __DIR__ . '/../resources/assets/js/filex.js' => public_path('vendor/filex/js/filex.js'),
-        ], 'filex-assets');
-
-        // Auto-publish assets and config if running in console and they don't exist
+        // Optimize boot performance with lazy loading
         if ($this->app->runningInConsole()) {
-            $this->autoPublishAssets();
+            $this->bootConsoleFeatures();
         }
-
+        
+        if ($this->app->runningUnitTests()) {
+            return; // Skip heavy operations during testing
+        }
+        
+        // Register custom validation rules (lazy loaded)
+        static $rulesRegistered = false;
+        $this->app->resolving('validator', function ($validator) use (&$rulesRegistered) {
+            if (!$rulesRegistered) {
+                $this->registerCustomValidationRules();
+                $rulesRegistered = true;
+            }
+        });
+        
+        // Register Blade components and directives
+        $this->registerBladeFeatures();
+        
+        // Publishing setup (console only)
+        if ($this->app->runningInConsole()) {
+            $this->setupPublishing();
+        }
+    }
+    
+    /**
+     * Boot console-specific features
+     */
+    protected function bootConsoleFeatures(): void
+    {
         // Add cleanup to scheduler if enabled
         if (config('filex.cleanup.enabled', true)) {
             $this->app->afterResolving(Schedule::class, function ($schedule) {
@@ -108,19 +111,68 @@ class FilexServiceProvider extends PackageServiceProvider
                 }
             });
         }
+        
+        // Auto-publish assets and config if they don't exist
+        $this->autoPublishAssets();
+    }
+    
+    /**
+     * Register Blade components and directives
+     */
+    protected function registerBladeFeatures(): void
+    {
+        // Register Blade component
+        Blade::component('filex::components.file-uploader', 'filex-uploader');
+        
+        // Register Blade directive for Filex assets and routes
+        Blade::directive('filexAssets', function () {
+            return '<?php echo view("filex::assets")->render(); ?>';
+        });
+    }
+    
+    /**
+     * Setup publishing configuration
+     */
+    protected function setupPublishing(): void
+    {
+        // Publish configuration
+        $this->publishes([
+            __DIR__ . '/../config/filex.php' => config_path('filex.php'),
+        ], 'filex-config');
+
+        // Publish assets
+        $this->publishes([
+            __DIR__ . '/../resources/assets/css/dropzone.min.css' => public_path('vendor/filex/css/dropzone.min.css'),
+            __DIR__ . '/../resources/assets/css/filex.css' => public_path('vendor/filex/css/filex.css'),
+            __DIR__ . '/../resources/assets/js/dropzone.min.js' => public_path('vendor/filex/js/dropzone.min.js'),
+            __DIR__ . '/../resources/assets/js/filex.js' => public_path('vendor/filex/js/filex.js'),
+        ], 'filex-assets');
     }
 
     /**
-     * Register custom Filex validation rules
+     * Register custom Filex validation rules with optimization
      */
     protected function registerCustomValidationRules(): void
     {
+        // Cache for rule instances to avoid repeated instantiation
+        static $ruleCache = [];
+        
+        $createCachedRule = function($ruleClass, $parameters = null) use (&$ruleCache) {
+            $key = $ruleClass . serialize($parameters);
+            if (!isset($ruleCache[$key])) {
+                $ruleCache[$key] = $parameters !== null 
+                    ? new $ruleClass(...(array)$parameters)
+                    : new $ruleClass();
+            }
+            return $ruleCache[$key];
+        };
+
         // Register filex:mimes rule
-        Validator::extend('filex_mimes', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_mimes', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters)) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexMimes(implode(',', $parameters));
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMimes::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -129,11 +181,11 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:min rule
-        Validator::extend('filex_min', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_min', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters) || !is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexMin((int) $parameters[0]);
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMin::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -142,11 +194,11 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:max rule
-        Validator::extend('filex_max', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_max', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters) || !is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexMax((int) $parameters[0]);
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMax::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -155,11 +207,11 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:dimensions rule
-        Validator::extend('filex_dimensions', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_dimensions', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters)) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexDimensions(implode(',', $parameters));
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexDimensions::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -168,8 +220,8 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:image rule
-        Validator::extend('filex_image', function ($attribute, $value, $parameters, $validator) {
-            $rule = new \DevWizard\Filex\Rules\FilexImage();
+        Validator::extend('filex_image', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexImage::class);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -178,8 +230,8 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:file rule
-        Validator::extend('filex_file', function ($attribute, $value, $parameters, $validator) {
-            $rule = new \DevWizard\Filex\Rules\FilexFile();
+        Validator::extend('filex_file', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexFile::class);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -188,11 +240,11 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:size rule
-        Validator::extend('filex_size', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_size', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters) || !is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexSize((int) $parameters[0]);
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexSize::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -201,11 +253,11 @@ class FilexServiceProvider extends PackageServiceProvider
         });
 
         // Register filex:mimetypes rule
-        Validator::extend('filex_mimetypes', function ($attribute, $value, $parameters, $validator) {
+        Validator::extend('filex_mimetypes', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
             if (empty($parameters)) {
                 return false;
             }
-            $rule = new \DevWizard\Filex\Rules\FilexMimetypes(implode(',', $parameters));
+            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMimetypes::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;

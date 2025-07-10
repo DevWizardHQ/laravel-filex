@@ -16,10 +16,15 @@ class FilexMimes implements ValidationRule
 {
     protected $allowedMimes;
     protected $filexService;
+    
+    /**
+     * Static cache for extension to MIME type mappings
+     */
+    private static ?array $extensionMimesCache = null;
 
     public function __construct(string $mimes)
     {
-        // Convert extensions to MIME types
+        // Convert extensions to MIME types using cached mapping
         $extensions = explode(',', $mimes);
         $this->allowedMimes = $this->extensionsToMimes($extensions);
         $this->filexService = app(FilexService::class);

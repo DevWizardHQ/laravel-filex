@@ -1,9 +1,9 @@
 /**
  * Laravel Filex - File Upload Component Styles
- * 
+ *
  * A comprehensive stylesheet for the Laravel Filex file upload component
  * built on Dropzone.js with modern design and responsive layout.
- * 
+ *
  * @package DevWizard\Filex
  * @version 1.0.0
  */
@@ -496,7 +496,8 @@
 }
 
 .filex-uploader .dz-preview .dz-remove svg {
-    display: none !important; /* Hide any JavaScript-added SVG */
+    display: none !important;
+    /* Hide any JavaScript-added SVG */
 }
 
 .filex-uploader .dz-preview .dz-remove:hover {
@@ -584,6 +585,7 @@
     border: none !important;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
     opacity: 1 !important;
+    overflow: hidden !important;
 }
 
 .filex-uploader .dz-error-message:after {
@@ -887,4 +889,286 @@
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
+}
+
+/* ==========================================================================
+   NOTIFICATION SYSTEM STYLES
+   ========================================================================== */
+
+/* Notification Container */
+.filex-notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    max-width: 450px;
+    min-width: 300px;
+    pointer-events: none;
+}
+
+.filex-notifications-container>* {
+    pointer-events: auto;
+}
+
+/* Base Notification Styles */
+.filex-notification {
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 500;
+    color: white;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    transform: translateX(0);
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    animation: slideInRight 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.filex-notification:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Error Notification */
+.filex-notification--error {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    box-shadow: 0 8px 32px rgba(220, 53, 69, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filex-notification--error:hover {
+    box-shadow: 0 12px 40px rgba(220, 53, 69, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Success Notification */
+.filex-notification--success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+    box-shadow: 0 8px 32px rgba(40, 167, 69, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filex-notification--success:hover {
+    box-shadow: 0 12px 40px rgba(40, 167, 69, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Warning Notification */
+.filex-notification--warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #212529;
+    box-shadow: 0 8px 32px rgba(255, 193, 7, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filex-notification--warning:hover {
+    box-shadow: 0 12px 40px rgba(255, 193, 7, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Info Notification */
+.filex-notification--info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    box-shadow: 0 8px 32px rgba(23, 162, 184, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.filex-notification--info:hover {
+    box-shadow: 0 12px 40px rgba(23, 162, 184, 0.35), 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Notification Content */
+.filex-notification__content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.filex-notification__icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    opacity: 0.9;
+}
+
+.filex-notification__message {
+    flex: 1;
+    margin: 0;
+}
+
+.filex-notification__close {
+    background: none;
+    border: none;
+    color: currentColor;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 18px;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.filex-notification__close:hover,
+.filex-notification__close:focus {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* Progress Bar for Notifications */
+.filex-notification__progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 0 0 12px 12px;
+    transition: width linear;
+}
+
+/* Animations */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutLeft {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    to {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+/* Slide out animation class */
+.filex-notification--sliding-out {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .filex-notifications-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        max-width: none;
+        min-width: 280px;
+    }
+
+    .filex-notification {
+        padding: 14px 16px;
+        font-size: 13px;
+    }
+
+    .filex-notification__content {
+        gap: 10px;
+    }
+
+    .filex-notification__icon {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .filex-notification {
+        border-color: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(20px);
+    }
+
+    .filex-notification--warning {
+        color: #000;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .filex-notification {
+        border-width: 2px;
+        box-shadow: none;
+    }
+
+    .filex-notification__close:hover,
+    .filex-notification__close:focus {
+        background: rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .filex-notification {
+        animation: fadeIn 0.2s ease;
+    }
+
+    .filex-notification--sliding-out {
+        animation: fadeOut 0.2s ease forwards;
+    }
+
+    .filex-notification,
+    .filex-notification__close {
+        transition: none;
+    }
 }

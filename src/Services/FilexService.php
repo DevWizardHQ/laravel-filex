@@ -25,6 +25,11 @@ class FilexService
      * Static cache for allowed MIME types
      */
     private static ?array $allowedMimeTypes = null;
+    
+    /**
+     * Static cache for suspicious patterns (micro-optimization)
+     */
+    private static ?array $suspiciousPatterns = null;
     /**
      * Generate a unique filename with better performance
      */
@@ -917,7 +922,7 @@ class FilexService
     }
 
     /**
-     * Scan file content for suspicious patterns
+     * Scan file content for suspicious patterns with optimized memory usage
      */
     protected function containsSuspiciousContent(string $filePath): bool
     {
@@ -929,29 +934,41 @@ class FilexService
             return false; // Skip binary files
         }
 
-        $content = file_get_contents($filePath, false, null, 0, 10240); // Read first 10KB
+        // Use optimized streaming approach for better memory usage
+        $handle = fopen($filePath, 'rb');
+        if ($handle === false) {
+            return false;
+        }
+
+        $content = fread($handle, 10240); // Read first 10KB
+        fclose($handle);
+        
         if ($content === false) {
             return false;
         }
 
-        $suspiciousPatterns = [
-            '/<\?php/i',
-            '/<%[^>]*%>/i', // ASP tags
-            '/javascript:/i',
-            '/vbscript:/i',
-            '/onload\s*=/i',
-            '/onerror\s*=/i',
-            '/eval\s*\(/i',
-            '/exec\s*\(/i',
-            '/system\s*\(/i',
-            '/shell_exec\s*\(/i',
-            '/passthru\s*\(/i',
-            '/base64_decode\s*\(/i',
-        ];
+        // Cache suspicious patterns for better performance
+        if (self::$suspiciousPatterns === null) {
+            self::$suspiciousPatterns = [
+                '/<\?php/i',
+                '/<%[^>]*%>/i', // ASP tags
+                '/javascript:/i',
+                '/vbscript:/i',
+                '/onload\s*=/i',
+                '/onerror\s*=/i',
+                '/eval\s*\(/i',
+                '/exec\s*\(/i',
+                '/system\s*\(/i',
+                '/shell_exec\s*\(/i',
+                '/passthru\s*\(/i',
+                '/base64_decode\s*\(/i',
+            ];
+        }
 
-        foreach ($suspiciousPatterns as $pattern) {
+        // Use optimized pattern matching with early exit
+        foreach (self::$suspiciousPatterns as $pattern) {
             if (preg_match($pattern, $content)) {
-                return true;
+                return true; // Early exit on first match
             }
         }
 

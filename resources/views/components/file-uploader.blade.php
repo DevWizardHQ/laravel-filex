@@ -3,14 +3,25 @@
 
     A powerful and flexible file upload component built on Dropzone.js
     that provides drag-and-drop uploads, progress tracking, chunked uploads,
-    and temporary file handling for Laravel     <!-- File uploader container -->
-    <div id="{{ $componentId }}"
-         class="filex-uploader {{ $class }} {{ $required ? 'required' : '' }} {{ $disabled ? 'disabled' : '' }}"
-         style="{{ $style }}"
-         data-component-id="{{ $componentId }}"
-         data-config="{{ htmlspecialchars(json_encode($jsConfig), ENT_QUOTES, 'UTF-8') }}"ications.
+    temporary file handling, and comprehensive error handling for Laravel applications.
 
-    Usage: <x-filex-uploader name="files" :multiple="true" />
+    Basic Usage: 
+    <x-filex-uploader name="files" :multiple="true" />
+
+    Advanced Usage with Error Handling:
+    <x-filex-uploader 
+        name="documents" 
+        :multiple="true" 
+        :maxFiles="5"
+        :maxSize="10"
+        accept=".pdf,.doc,.docx"
+        :showErrorNotifications="true"
+        :showSuccessMessages="true"
+        :errorTimeout="5000"
+        :successTimeout="3000"
+        label="Upload Documents"
+        helpText="Upload up to 5 PDF or Word documents (max 10MB each)"
+        :required="true" />
 
     Documentation: https://github.com/devwizardhq/laravel-filex
 --}}
@@ -65,6 +76,10 @@
     // Advanced options
     'value' => [],
     'debug' => false,
+    'showSuccessMessages' => false,
+    'showErrorNotifications' => true,
+    'errorTimeout' => 5000,
+    'successTimeout' => 3000,
 
     // Image processing
     'thumbnailWidth' => 120,
@@ -210,6 +225,10 @@
         'validation' => $frontendValidation,
         'messages' => $allMessages,
         'debug' => $debug,
+        'showSuccessMessages' => $showSuccessMessages,
+        'showErrorNotifications' => $showErrorNotifications,
+        'errorTimeout' => $errorTimeout,
+        'successTimeout' => $successTimeout,
         'thumbnailWidth' => $thumbnailWidth,
         'thumbnailHeight' => $thumbnailHeight,
         'thumbnailMethod' => $thumbnailMethod,

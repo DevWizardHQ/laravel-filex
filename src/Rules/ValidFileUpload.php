@@ -23,6 +23,16 @@ class ValidFileUpload implements ValidationRule
     protected $maxFileSize;
     protected $strict;
     protected $filexService;
+    
+    /**
+     * Static cache for validation results to improve performance
+     */
+    private static array $validationCache = [];
+    
+    /**
+     * Static cache for file signatures
+     */
+    private static array $signatureCache = [];
 
     public function __construct(
         ?array $allowedExtensions = null,
@@ -38,7 +48,7 @@ class ValidFileUpload implements ValidationRule
     }
 
     /**
-     * Run the validation rule.
+     * Run the validation rule with caching optimization.
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
@@ -48,10 +58,24 @@ class ValidFileUpload implements ValidationRule
             return;
         }
 
+        // Create cache key for this validation
+        $cacheKey = md5($value . serialize($this->allowedExtensions) . serialize($this->allowedMimeTypes) . $this->maxFileSize);
+        
+        // Check cache first for performance
+        if (isset(self::$validationCache[$cacheKey])) {
+            $cached = self::$validationCache[$cacheKey];
+            if (!$cached['valid']) {
+                $fail($cached['message']);
+            }
+            return;
+        }
+
         // Get file metadata
         $metadata = $this->filexService->getTempMeta($value);
         if (!$metadata) {
-            $fail('File not found or expired.');
+            $error = 'File not found or expired.';
+            self::$validationCache[$cacheKey] = ['valid' => false, 'message' => $error];
+            $fail($error);
             return;
         }
 
@@ -59,7 +83,9 @@ class ValidFileUpload implements ValidationRule
         $tempDisk = $this->filexService->getTempDisk();
         
         if (!$tempDisk->exists($value)) {
-            $fail('File not found.');
+            $error = 'File not found.';
+            self::$validationCache[$cacheKey] = ['valid' => false, 'message' => $error];
+            $fail($error);
             return;
         }
 
@@ -103,8 +129,18 @@ class ValidFileUpload implements ValidationRule
 
         // 6. Additional security checks for specific file types
         if (!$this->performAdditionalSecurityChecks($filePath, $extension, $realMimeType)) {
-            $fail('File failed security validation.');
+            $error = 'File failed security validation.';
+            self::$validationCache[$cacheKey] = ['valid' => false, 'message' => $error];
+            $fail($error);
             return;
+        }
+        
+        // Cache successful validation result
+        self::$validationCache[$cacheKey] = ['valid' => true, 'message' => null];
+        
+        // Limit cache size to prevent memory issues
+        if (count(self::$validationCache) > 100) {
+            self::$validationCache = array_slice(self::$validationCache, -50, null, true);
         }
     }
 
@@ -129,7 +165,7 @@ class ValidFileUpload implements ValidationRule
     }
 
     /**
-     * Validate file signature (magic bytes) for security
+     * Validate file signature (magic bytes) for security with caching
      */
     protected function validateFileSignature(string $filePath, string $extension): bool
     {
@@ -137,6 +173,12 @@ class ValidFileUpload implements ValidationRule
         
         if (!is_readable($filePath)) {
             return false;
+        }
+
+        // Check cache first
+        $fileHash = md5_file($filePath);
+        if (isset(self::$signatureCache[$fileHash])) {
+            return self::$signatureCache[$fileHash];
         }
 
         // Initialize signatures array once
@@ -178,10 +220,21 @@ class ValidFileUpload implements ValidationRule
         fclose($handle);
 
         if ($header === false) {
+            self::$signatureCache[$fileHash] = false;
             return false;
         }
 
-        return $this->checkFileSignature($header, $extension);
+        $result = $this->checkFileSignature($header, $extension);
+        
+        // Cache the result
+        self::$signatureCache[$fileHash] = $result;
+        
+        // Limit cache size
+        if (count(self::$signatureCache) > 50) {
+            self::$signatureCache = array_slice(self::$signatureCache, -25, null, true);
+        }
+        
+        return $result;
     }
 
     /**
