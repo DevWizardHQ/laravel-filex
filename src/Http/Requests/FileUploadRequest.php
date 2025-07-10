@@ -30,9 +30,9 @@ class FileUploadRequest extends FormRequest
      */
     public function configure(
         string $fileField = 'file', 
-        array $allowedExtensions = null, 
-        array $allowedMimeTypes = null,
-        int $maxFileSize = null,
+        ?array $allowedExtensions = null, 
+        ?array $allowedMimeTypes = null,
+        ?int $maxFileSize = null,
         bool $required = true,
         bool $multiple = false
     ): self {
