@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace DevWizard\Filex\Services;
 
 use Illuminate\Support\Facades\Storage;
@@ -30,6 +32,32 @@ class FilexService
      * Static cache for suspicious patterns (micro-optimization)
      */
     private static ?array $suspiciousPatterns = null;
+
+    /**
+     * Static cache for MIME type detection
+     */
+    private static array $mimeTypeCache = [];
+
+    /**
+     * Static cache for memory thresholds
+     */
+    private static ?array $memoryThresholds = null;
+
+    /**
+     * Static cache for buffer sizes
+     */
+    private static array $bufferSizeCache = [];
+
+    /**
+     * Static cache for byte formatting
+     */
+    private static array $byteFormatCache = [];
+
+    /**
+     * Memory usage high watermark
+     */
+    private static ?float $memoryHighWatermark = null;
+
     /**
      * Generate a unique filename with better performance
      */
@@ -545,20 +573,97 @@ class FilexService
     }
 
     /**
-     * Get optimal buffer size based on file size
+     * Detect real MIME type using finfo with caching
+     */
+    protected function detectRealMimeType(string $filePath): string
+    {
+        $cacheKey = md5_file($filePath);
+
+        if (isset(self::$mimeTypeCache[$cacheKey])) {
+            return self::$mimeTypeCache[$cacheKey];
+        }
+
+        // Check memory before expensive operation
+        $this->checkMemoryUsage();
+
+        $mimeType = null;
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+        try {
+            $mimeType = finfo_file($finfo, $filePath);
+        } finally {
+            if ($finfo) {
+                finfo_close($finfo);
+            }
+        }
+
+        // Cache the result
+        self::$mimeTypeCache[$cacheKey] = $mimeType;
+
+        // Limit cache size
+        if (count(self::$mimeTypeCache) > 1000) {
+            array_shift(self::$mimeTypeCache);
+        }
+
+        return $mimeType;
+    }
+
+    /**
+     * Enhanced buffer size calculation with caching
      */
     protected function getBufferSize(int $fileSize): int
     {
-        // Dynamic buffer sizing for better performance
-        if ($fileSize < 1024 * 1024) { // < 1MB
-            return 4096; // 4KB
-        } elseif ($fileSize < 10 * 1024 * 1024) { // < 10MB
-            return 8192; // 8KB
-        } elseif ($fileSize < 100 * 1024 * 1024) { // < 100MB
-            return 16384; // 16KB
-        } else {
-            return 32768; // 32KB for very large files
+        $cacheKey = $fileSize;
+
+        if (isset(self::$bufferSizeCache[$cacheKey])) {
+            return self::$bufferSizeCache[$cacheKey];
         }
+
+        // Base buffer size on file size and available memory
+        $memoryLimit = $this->convertToBytes(ini_get('memory_limit'));
+        $currentUsage = memory_get_usage(true);
+        $availableMemory = $memoryLimit - $currentUsage;
+
+        // Calculate optimal buffer size
+        if ($fileSize < 1024 * 1024) { // < 1MB
+            $bufferSize = 8192; // 8KB
+        } elseif ($fileSize < 10 * 1024 * 1024) { // < 10MB
+            $bufferSize = 64 * 1024; // 64KB
+        } elseif ($fileSize < 100 * 1024 * 1024) { // < 100MB
+            $bufferSize = 256 * 1024; // 256KB
+        } else {
+            $bufferSize = 1024 * 1024; // 1MB
+        }
+
+        // Ensure buffer size doesn't exceed 10% of available memory
+        $maxBuffer = (int)($availableMemory * 0.1);
+        $bufferSize = min($bufferSize, $maxBuffer);
+
+        // Cache the result
+        self::$bufferSizeCache[$cacheKey] = $bufferSize;
+
+        return $bufferSize;
+    }
+
+    /**
+     * Convert PHP ini memory value to bytes
+     */
+    private function convertToBytes(string $memoryValue): int
+    {
+        $memoryValue = trim($memoryValue);
+        $value = (int) $memoryValue;
+        $unit = strtolower($memoryValue[strlen($memoryValue) - 1]);
+
+        switch ($unit) {
+            case 'g':
+                $value *= 1024;
+            case 'm':
+                $value *= 1024;
+            case 'k':
+                $value *= 1024;
+        }
+
+        return $value;
     }
 
     /**
@@ -1362,14 +1467,34 @@ class FilexService
     }
 
     /**
-     * Process a batch of file moves
+     * Process a batch of file moves with memory management
      */
     private function processMoveFileBatch(array $batch, string $targetDirectory, $tempDisk, $targetDisk): array
     {
         $results = [];
+        $memoryLimit = $this->convertToBytes(ini_get('memory_limit'));
+        $memoryThreshold = $memoryLimit * 0.8; // 80% of memory limit
 
         foreach ($batch as $tempPath) {
             try {
+                // Check memory usage before processing each file
+                if (memory_get_usage(true) > $memoryThreshold) {
+                    // Force garbage collection
+                    if (function_exists('gc_collect_cycles')) {
+                        gc_collect_cycles();
+                    }
+
+                    // If still above threshold, delay processing
+                    if (memory_get_usage(true) > $memoryThreshold) {
+                        $results[] = [
+                            'success' => false,
+                            'tempPath' => $tempPath,
+                            'message' => 'Insufficient memory available. Please try again later.'
+                        ];
+                        continue;
+                    }
+                }
+
                 $metadata = $this->getTempMeta($tempPath);
                 $originalName = $metadata['original_name'] ?? basename($tempPath);
 
@@ -1377,10 +1502,22 @@ class FilexService
                 $finalFileName = $this->generateFileName($originalName);
                 $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
 
-                // Use existing copyStream method for consistency
-                $moved = $this->copyStream($tempDisk, $tempPath, $targetDisk, $finalPath);
+                // Use streaming with optimal buffer size
+                $fileSize = $tempDisk->size($tempPath);
+                $bufferSize = $this->getBufferSize($fileSize);
 
-                if ($moved) {
+                $sourceHandle = $tempDisk->readStream($tempPath);
+                if (!$sourceHandle) {
+                    throw new \RuntimeException('Could not open source file for reading');
+                }
+
+                try {
+                    $targetHandle = $targetDisk->writeStream($finalPath, $sourceHandle);
+
+                    if ($targetHandle === false) {
+                        throw new \RuntimeException('Could not write to target file');
+                    }
+
                     // Clean up temp file
                     $this->deleteTemp($tempPath);
 
@@ -1390,18 +1527,114 @@ class FilexService
                         'finalPath' => $finalPath,
                         'metadata' => $metadata
                     ];
-                } else {
-                    $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
+                } finally {
+                    if (is_resource($sourceHandle)) {
+                        fclose($sourceHandle);
+                    }
+                }
+
+                // Release memory after each file
+                unset($metadata);
+                if (function_exists('gc_collect_cycles')) {
+                    gc_collect_cycles();
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to move temp file in batch', [
                     'temp_path' => $tempPath,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
+                    'memory_usage' => $this->formatBytes(memory_get_usage(true))
                 ]);
-                $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => $e->getMessage()];
+
+                $results[] = [
+                    'success' => false,
+                    'tempPath' => $tempPath,
+                    'message' => $e->getMessage()
+                ];
             }
         }
 
         return $results;
+    }
+
+    /**
+     * Enhanced byte formatting with caching
+     */
+    private function formatBytes(int $bytes): string
+    {
+        $cacheKey = $bytes;
+
+        if (isset(self::$byteFormatCache[$cacheKey])) {
+            return self::$byteFormatCache[$cacheKey];
+        }
+
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $bytes = max($bytes, 0);
+        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
+        $pow = min($pow, count($units) - 1);
+        $bytes /= pow(1024, $pow);
+
+        $result = round($bytes, 2) . ' ' . $units[$pow];
+
+        // Cache the result
+        self::$byteFormatCache[$cacheKey] = $result;
+
+        // Limit cache size
+        if (count(self::$byteFormatCache) > 100) {
+            array_shift(self::$byteFormatCache);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Initialize memory thresholds
+     */
+    private function initMemoryThresholds(): void
+    {
+        if (self::$memoryThresholds === null) {
+            $limit = $this->convertToBytes(ini_get('memory_limit'));
+            self::$memoryThresholds = [
+                'warning' => $limit * 0.75,  // 75% of memory limit
+                'critical' => $limit * 0.85,  // 85% of memory limit
+                'emergency' => $limit * 0.95, // 95% of memory limit
+            ];
+        }
+    }
+
+    /**
+     * Check memory usage and take action if needed
+     */
+    private function checkMemoryUsage(): void
+    {
+        $this->initMemoryThresholds();
+        $currentUsage = memory_get_usage(true);
+
+        // Update high watermark
+        if (self::$memoryHighWatermark === null || $currentUsage > self::$memoryHighWatermark) {
+            self::$memoryHighWatermark = $currentUsage;
+        }
+
+        if ($currentUsage >= self::$memoryThresholds['emergency']) {
+            // Emergency: Force garbage collection and clear caches
+            gc_collect_cycles();
+            self::$mimeTypeCache = [];
+            self::$bufferSizeCache = [];
+            self::$byteFormatCache = [];
+            Log::warning('Emergency memory cleanup performed', [
+                'usage' => $this->formatBytes($currentUsage),
+                'limit' => $this->formatBytes($this->convertToBytes(ini_get('memory_limit')))
+            ]);
+        } elseif ($currentUsage >= self::$memoryThresholds['critical']) {
+            // Critical: Trigger garbage collection
+            gc_collect_cycles();
+            Log::info('Memory usage critical, garbage collection triggered', [
+                'usage' => $this->formatBytes($currentUsage)
+            ]);
+        } elseif ($currentUsage >= self::$memoryThresholds['warning']) {
+            // Warning: Log for monitoring
+            Log::info('High memory usage detected', [
+                'usage' => $this->formatBytes($currentUsage)
+            ]);
+        }
     }
 }

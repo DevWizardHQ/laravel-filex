@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Cache; // Added Cache facade
 
 class FilexController extends Controller
 {
@@ -71,7 +72,7 @@ class FilexController extends Controller
     }
 
     /**
-     * Handle chunked file upload
+     * Handle chunked file upload with optimized streaming
      */
     protected function handleChunkedUpload(Request $request, $file): JsonResponse
     {
@@ -80,139 +81,79 @@ class FilexController extends Controller
         $totalChunks = (int) $request->input('dztotalchunkcount', 1);
         $originalFileName = $file->getClientOriginalName();
 
-        // Create temp directory for chunks
+        // Create temp directory for chunks with proper permissions
         $tempDir = 'temp/chunks/' . $uuid;
         $chunkPath = $tempDir . '/chunk_' . $chunkIndex;
-
-        // Store the chunk using streaming
         $tempDisk = $this->getTempDisk();
-        $chunkFullPath = $tempDisk->path($chunkPath);
-
-        // Ensure chunk directory exists
-        $chunkDir = dirname($chunkFullPath);
-        if (!is_dir($chunkDir)) {
-            mkdir($chunkDir, 0755, true);
-        }
 
         try {
-            // Use streaming to store chunk
-            $fileStream = fopen($file->getRealPath(), 'rb');
-            $chunkStream = fopen($chunkFullPath, 'wb');
+            // Monitor performance
+            $startTime = microtime(true);
+            $initialMemory = memory_get_usage(true);
 
-            if (!$fileStream || !$chunkStream) {
-                throw new \RuntimeException('Could not open files for chunk streaming');
+            // Ensure chunk directory exists with proper permissions
+            $chunkDir = dirname($tempDisk->path($chunkPath));
+            if (!is_dir($chunkDir)) {
+                mkdir($chunkDir, 0755, true);
             }
 
-            try {
-                // Stream copy in 8KB chunks
-                while (!feof($fileStream)) {
-                    $data = fread($fileStream, 8192);
-                    if ($data === false) break;
-                    fwrite($chunkStream, $data);
-                }
-            } finally {
-                if ($fileStream) fclose($fileStream);
-                if ($chunkStream) fclose($chunkStream);
-            }
-        } catch (\Exception $e) {
-            // Clean up partial chunk on error
-            if (file_exists($chunkFullPath)) {
-                unlink($chunkFullPath);
+            // Calculate optimal buffer size based on chunk size
+            $chunkSize = $file->getSize();
+            $bufferSize = $this->calculateOptimalBufferSize($chunkSize);
+
+            // Stream the chunk with progress monitoring
+            $this->streamChunkWithMonitoring(
+                $file->getRealPath(),
+                $tempDisk->path($chunkPath),
+                $bufferSize,
+                $chunkSize
+            );
+
+            // Log performance metrics
+            $this->logUploadMetrics(
+                $startTime,
+                $initialMemory,
+                $chunkSize,
+                $chunkIndex,
+                $totalChunks
+            );
+
+            // Check if all chunks are uploaded
+            $uploadedChunks = $this->getUploadedChunksCount($tempDir);
+
+            if ($uploadedChunks === $totalChunks) {
+                return $this->finalizeChunkedUpload(
+                    $tempDir,
+                    $originalFileName,
+                    $totalChunks,
+                    $request
+                );
             }
 
-            Log::error('Chunk upload error', [
-                'uuid' => $uuid,
-                'chunk_index' => $chunkIndex,
-                'error' => $e->getMessage()
+            // Return partial success for chunk upload
+            return response()->json([
+                'success' => true,
+                'chunk' => $chunkIndex,
+                'totalChunks' => $totalChunks,
+                'progress' => round(($uploadedChunks / $totalChunks) * 100, 2),
+                'message' => __('filex::translations.chunk_uploaded', [
+                    'chunk' => $chunkIndex + 1,
+                    'total' => $totalChunks
+                ]),
+                'upload_type' => 'chunk_partial',
+                'metrics' => $this->getUploadMetrics(),
+                'timestamp' => now()->toIso8601String()
             ]);
+        } catch (\Exception $e) {
+            // Clean up on error
+            $this->cleanupChunkOnError($tempDisk, $chunkPath, $e);
 
             return $this->errorResponse(
-                __('filex::translations.chunk_upload_failed', ['chunk' => $chunkIndex]),
+                __('filex::translations.chunk_upload_failed', ['chunk' => $chunkIndex + 1]),
                 500,
                 'chunk_upload_error'
             );
         }
-
-        // Check if all chunks are uploaded
-        $uploadedChunks = collect($tempDisk->files($tempDir))
-            ->filter(function ($file) {
-                return str_contains($file, 'chunk_');
-            })
-            ->count();
-
-        if ($uploadedChunks === $totalChunks) {
-            try {
-                // All chunks uploaded, merge them using streaming
-                $finalFileName = $this->filexService->generateFileName($originalFileName);
-                $finalPath = 'temp/' . $finalFileName;
-
-                // Use streaming to merge chunks to avoid memory exhaustion
-                $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
-
-                // Clean up chunks
-                $tempDisk->deleteDirectory($tempDir);
-
-                // Validate merged file
-                $validation = $this->filexService->validateTemp($finalPath, $originalFileName);
-                if (!$validation['valid']) {
-                    $tempDisk->delete($finalPath);
-                    return response()->json([
-                        'success' => false,
-                        'message' => $validation['message'] ?? __('filex::translations.validation_failed_after_upload'),
-                        'error_type' => 'validation_error',
-                        'timestamp' => now()->toISOString()
-                    ], 422);
-                }
-
-                // Mark file with metadata
-                $this->filexService->markTemp($finalPath, [
-                    'original_name' => $originalFileName,
-                    'uploaded_at' => now(),
-                    'user_id' => Auth::check() ? Auth::id() : null,
-                    'session_id' => session()->getId(),
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'tempPath' => $finalPath,
-                    'originalName' => $originalFileName,
-                    'size' => $tempDisk->size($finalPath),
-                    'message' => __('filex::translations.upload_success'),
-                    'upload_type' => 'chunked',
-                    'total_chunks' => $totalChunks,
-                    'timestamp' => now()->toISOString()
-                ]);
-            } catch (\Exception $e) {
-                // Clean up on merge failure
-                $tempDisk->deleteDirectory($tempDir);
-                if (isset($finalPath)) {
-                    $tempDisk->delete($finalPath);
-                }
-
-                Log::error('Chunk merge error', [
-                    'uuid' => $uuid,
-                    'total_chunks' => $totalChunks,
-                    'error' => $e->getMessage()
-                ]);
-
-                return $this->errorResponse(
-                    __('filex::translations.chunk_merge_failed'),
-                    500,
-                    'chunk_merge_error'
-                );
-            }
-        }
-
-        // Return partial success for chunk upload
-        return response()->json([
-            'success' => true,
-            'chunk' => $chunkIndex,
-            'totalChunks' => $totalChunks,
-            'progress' => round(($chunkIndex + 1) / $totalChunks * 100, 2),
-            'message' => __('filex::translations.chunk_uploaded', ['chunk' => $chunkIndex, 'total' => $totalChunks]),
-            'upload_type' => 'chunk_partial',
-            'timestamp' => now()->toISOString()
-        ]);
     }
 
     /**
@@ -787,5 +728,313 @@ class FilexController extends Controller
         }
 
         return round($bytes, $precision) . ' ' . $units[$i];
+    }
+
+    /**
+     * Stream chunk with progress monitoring
+     */
+    private function streamChunkWithMonitoring(
+        string $sourcePath,
+        string $targetPath,
+        int $bufferSize,
+        int $totalSize
+    ): void {
+        $bytesWritten = 0;
+        $lastProgressUpdate = microtime(true);
+        $progressInterval = 0.5; // Update progress every 0.5 seconds
+
+        $source = fopen($sourcePath, 'rb');
+        $target = fopen($targetPath, 'wb');
+
+        if (!$source || !$target) {
+            throw new \RuntimeException('Could not open files for streaming');
+        }
+
+        try {
+            while (!feof($source)) {
+                $buffer = fread($source, $bufferSize);
+                if ($buffer === false) break;
+
+                $written = fwrite($target, $buffer);
+                if ($written === false) {
+                    throw new \RuntimeException('Failed to write chunk data');
+                }
+
+                $bytesWritten += $written;
+
+                // Update progress periodically
+                $now = microtime(true);
+                if (($now - $lastProgressUpdate) >= $progressInterval) {
+                    $this->updateUploadProgress($bytesWritten, $totalSize);
+                    $lastProgressUpdate = $now;
+                }
+
+                // Check memory usage periodically
+                if ($bytesWritten % (10 * $bufferSize) === 0) {
+                    $this->checkMemoryUsage();
+                }
+            }
+        } finally {
+            if ($source) fclose($source);
+            if ($target) fclose($target);
+        }
+
+        // Verify file size
+        if ($bytesWritten !== $totalSize) {
+            throw new \RuntimeException('Chunk size mismatch after upload');
+        }
+    }
+
+    /**
+     * Calculate optimal buffer size based on chunk size and available memory
+     */
+    private function calculateOptimalBufferSize(int $chunkSize): int
+    {
+        $memoryLimit = $this->getMemoryLimit();
+        $currentUsage = memory_get_usage(true);
+        $availableMemory = $memoryLimit - $currentUsage;
+
+        // Base calculation on chunk size
+        if ($chunkSize < 1024 * 1024) { // < 1MB
+            $baseSize = 8192; // 8KB
+        } elseif ($chunkSize < 10 * 1024 * 1024) { // < 10MB
+            $baseSize = 64 * 1024; // 64KB
+        } elseif ($chunkSize < 100 * 1024 * 1024) { // < 100MB
+            $baseSize = 256 * 1024; // 256KB
+        } else {
+            $baseSize = 1024 * 1024; // 1MB
+        }
+
+        // Adjust based on available memory (max 5% of available)
+        $maxBuffer = (int)($availableMemory * 0.05);
+        return min($baseSize, $maxBuffer);
+    }
+
+    /**
+     * Get memory limit in bytes
+     */
+    private function getMemoryLimit(): int
+    {
+        $limit = ini_get('memory_limit');
+        if ($limit === '-1') return PHP_INT_MAX;
+
+        $value = (int)$limit;
+        $unit = strtolower(substr($limit, -1));
+
+        switch ($unit) {
+            case 'g':
+                $value *= 1024;
+            case 'm':
+                $value *= 1024;
+            case 'k':
+                $value *= 1024;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Check memory usage and take action if needed
+     */
+    private function checkMemoryUsage(): void
+    {
+        $usage = memory_get_usage(true);
+        $limit = $this->getMemoryLimit();
+        $percentage = ($usage / $limit) * 100;
+
+        if ($percentage > 90) {
+            // Critical: Force cleanup
+            gc_collect_cycles();
+            $this->clearUploadCache();
+            Log::warning('Critical memory usage during upload', [
+                'usage' => $this->formatBytes($usage),
+                'limit' => $this->formatBytes($limit),
+                'percentage' => round($percentage, 2)
+            ]);
+        } elseif ($percentage > 75) {
+            // Warning: Trigger garbage collection
+            gc_collect_cycles();
+            Log::info('High memory usage during upload', [
+                'usage' => $this->formatBytes($usage)
+            ]);
+        }
+    }
+
+    /**
+     * Clear upload-related caches
+     */
+    private function clearUploadCache(): void
+    {
+        static::$uploadLimits = null;
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+    }
+
+    /**
+     * Update upload progress
+     */
+    private function updateUploadProgress(int $bytesWritten, int $totalSize): void
+    {
+        $progress = [
+            'bytes_written' => $bytesWritten,
+            'total_size' => $totalSize,
+            'percentage' => round(($bytesWritten / $totalSize) * 100, 2),
+            'memory_usage' => $this->formatBytes(memory_get_usage(true)),
+            'timestamp' => microtime(true)
+        ];
+
+        Cache::put(
+            'upload_progress_' . request()->input('dzuuid'),
+            $progress,
+            now()->addMinutes(5)
+        );
+    }
+
+    /**
+     * Get upload metrics
+     */
+    private function getUploadMetrics(): array
+    {
+        return [
+            'memory_usage' => $this->formatBytes(memory_get_usage(true)),
+            'memory_peak' => $this->formatBytes(memory_get_peak_usage(true)),
+            'system_load' => sys_getloadavg()[0],
+            'timestamp' => (int)microtime(true)
+        ];
+    }
+
+    /**
+     * Log upload performance metrics
+     */
+    private function logUploadMetrics(
+        float $startTime,
+        int $initialMemory,
+        int $size,
+        int $chunkIndex,
+        int $totalChunks
+    ): void {
+        $endTime = microtime(true);
+        $duration = round($endTime - $startTime, 4);
+        $memoryUsed = memory_get_usage(true) - $initialMemory;
+
+        Log::info('Chunk upload metrics', [
+            'chunk_index' => $chunkIndex + 1,
+            'total_chunks' => $totalChunks,
+            'size' => $this->formatBytes($size),
+            'duration' => $duration . 's',
+            'memory_used' => $this->formatBytes($memoryUsed),
+            'throughput' => $this->formatBytes($size / $duration) . '/s'
+        ]);
+    }
+
+    /**
+     * Get count of uploaded chunks
+     */
+    private function getUploadedChunksCount(string $tempDir): int
+    {
+        return collect($this->getTempDisk()->files($tempDir))
+            ->filter(fn($file) => str_contains($file, 'chunk_'))
+            ->count();
+    }
+
+    /**
+     * Finalize chunked upload
+     */
+    private function finalizeChunkedUpload(
+        string $tempDir,
+        string $originalFileName,
+        int $totalChunks,
+        Request $request
+    ): JsonResponse {
+        try {
+            $startTime = microtime(true);
+            $initialMemory = memory_get_usage(true);
+
+            // Generate final filename
+            $finalFileName = $this->filexService->generateFileName($originalFileName);
+            $finalPath = 'temp/' . $finalFileName;
+
+            // Merge chunks with optimized streaming
+            $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
+
+            // Clean up chunks
+            $this->getTempDisk()->deleteDirectory($tempDir);
+
+            // Validate merged file
+            $validation = $this->filexService->validateTemp($finalPath, $originalFileName);
+            if (!$validation['valid']) {
+                $this->getTempDisk()->delete($finalPath);
+                return response()->json([
+                    'success' => false,
+                    'message' => $validation['message'],
+                    'error_type' => 'validation_error',
+                    'timestamp' => now()->toIso8601String()
+                ], 422);
+            }
+
+            // Mark file with metadata
+            $this->filexService->markTemp($finalPath, [
+                'original_name' => $originalFileName,
+                'uploaded_at' => now(),
+                'user_id' => Auth::id(),
+                'session_id' => session()->getId(),
+                'upload_metrics' => $this->getUploadMetrics()
+            ]);
+
+            // Log final metrics
+            $this->logUploadMetrics(
+                $startTime,
+                $initialMemory,
+                $this->getTempDisk()->size($finalPath),
+                $totalChunks - 1,
+                $totalChunks
+            );
+
+            return response()->json([
+                'success' => true,
+                'tempPath' => $finalPath,
+                'originalName' => $originalFileName,
+                'size' => $this->getTempDisk()->size($finalPath),
+                'message' => __('filex::translations.upload_success'),
+                'upload_type' => 'chunked',
+                'total_chunks' => $totalChunks,
+                'metrics' => $this->getUploadMetrics(),
+                'timestamp' => now()->toIso8601String()
+            ]);
+        } catch (\Exception $e) {
+            // Clean up on error
+            $this->getTempDisk()->deleteDirectory($tempDir);
+            if (isset($finalPath)) {
+                $this->getTempDisk()->delete($finalPath);
+            }
+
+            Log::error('Chunk merge error', [
+                'error' => $e->getMessage(),
+                'total_chunks' => $totalChunks
+            ]);
+
+            return $this->errorResponse(
+                __('filex::translations.chunk_merge_failed'),
+                500,
+                'chunk_merge_error'
+            );
+        }
+    }
+
+    /**
+     * Clean up chunk on error
+     */
+    private function cleanupChunkOnError($tempDisk, string $chunkPath, \Exception $e): void
+    {
+        if (file_exists($tempDisk->path($chunkPath))) {
+            unlink($tempDisk->path($chunkPath));
+        }
+
+        Log::error('Chunk upload error', [
+            'path' => $chunkPath,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
     }
 }
