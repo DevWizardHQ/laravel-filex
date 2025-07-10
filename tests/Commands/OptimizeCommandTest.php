@@ -65,23 +65,6 @@ class OptimizeCommandTest extends TestCase
 
     public function test_command_analyze_shows_performance_metrics()
     {
-        $metrics = [
-            'upload_file' => [
-                'count' => 10,
-                'avg_time' => 0.15,
-                'min_time' => 0.1,
-                'max_time' => 0.3,
-                'memory_usage' => [1000000, 1100000]
-            ],
-            'validate_file' => [
-                'count' => 5,
-                'avg_time' => 0.05,
-                'min_time' => 0.02,
-                'max_time' => 0.1,
-                'memory_usage' => [900000, 950000]
-            ]
-        ];
-
         // Skip this test to avoid database interactions
         $this->markTestSkipped('Skipping test that requires database access.');
     }

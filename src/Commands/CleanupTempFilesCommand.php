@@ -15,7 +15,6 @@ class CleanupTempFilesCommand extends Command
     protected $signature = 'filex:cleanup-temp 
                             {--force : Force cleanup without confirmation}
                             {--dry-run : Show what would be cleaned without actually deleting}
-                            {--include-quarantine : Also clean up quarantined files}
                             {--quarantine-only : Only clean quarantined files}';
 
     /**
@@ -23,8 +22,7 @@ class CleanupTempFilesCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Clean up expired temporary files and optionally quarantined files';
-
+    protected $description = 'Clean up expired temporary files and quarantined files';
     protected $filexService;
 
     /**
@@ -41,60 +39,42 @@ class CleanupTempFilesCommand extends Command
      */
     public function handle(): int
     {
-        $includeQuarantine = $this->option('include-quarantine');
         $quarantineOnly = $this->option('quarantine-only');
-        
         if ($quarantineOnly) {
             $this->info('Starting quarantine cleanup...');
             return $this->handleQuarantineCleanup();
         }
-        
         $this->info('Starting temporary file cleanup...');
-
         if ($this->option('dry-run')) {
             $this->warn('DRY RUN MODE - No files will actually be deleted');
         }
-
         try {
             // Get list of files that would be cleaned
             $results = $this->filexService->cleanup();
-
             if ($this->option('dry-run')) {
                 $this->displayDryRunResults($results, 'temporary');
-                
-                if ($includeQuarantine) {
-                    $quarantineResults = $this->filexService->cleanupQuarantine();
-                    $this->displayDryRunResults($quarantineResults, 'quarantined');
-                }
-                
+                $quarantineResults = $this->filexService->cleanupQuarantine();
+                $this->displayDryRunResults($quarantineResults, 'quarantined');
                 return self::SUCCESS;
             }
-
             // Ask for confirmation unless force flag is used
             if (!$this->option('force') && $results['cleaned_count'] > 0) {
                 $confirmed = $this->confirm(
                     "Are you sure you want to delete {$results['cleaned_count']} expired temporary files?"
                 );
-
                 if (!$confirmed) {
                     $this->info('Cleanup cancelled by user.');
                     return self::SUCCESS;
                 }
             }
-
             // Display results
             $this->displayResults($results, 'Temporary Files');
-
-            // Handle quarantine cleanup if requested
-            if ($includeQuarantine) {
-                $this->newLine();
-                $this->info('Starting quarantine cleanup...');
-                $quarantineResults = $this->filexService->cleanupQuarantine();
-                $this->displayResults($quarantineResults, 'Quarantined Files');
-            }
-
+            // Handle quarantine cleanup (always included)
+            $this->newLine();
+            $this->info('Starting quarantine cleanup...');
+            $quarantineResults = $this->filexService->cleanupQuarantine();
+            $this->displayResults($quarantineResults, 'Quarantined Files');
             return self::SUCCESS;
-
         } catch (\Exception $e) {
             $this->error('Cleanup failed: ' . $e->getMessage());
             return self::FAILURE;
@@ -132,7 +112,6 @@ class CleanupTempFilesCommand extends Command
 
             $this->displayResults($results, 'Quarantined Files');
             return self::SUCCESS;
-
         } catch (\Exception $e) {
             $this->error('Quarantine cleanup failed: ' . $e->getMessage());
             return self::FAILURE;
@@ -146,7 +125,7 @@ class CleanupTempFilesCommand extends Command
     {
         if ($results['cleaned_count'] > 0) {
             $this->info("Would clean up {$results['cleaned_count']} expired {$type} files:");
-            
+
             $this->table(
                 ['File Path', 'Status'],
                 collect($results['cleaned'])->map(function ($file) {
@@ -172,7 +151,7 @@ class CleanupTempFilesCommand extends Command
     {
         if ($results['cleaned_count'] > 0) {
             $this->info("Successfully cleaned up {$results['cleaned_count']} expired {$type}.");
-            
+
             if ($this->output->isVerbose()) {
                 $this->table(
                     ['File Path', 'Status'],
