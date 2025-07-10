@@ -42,18 +42,26 @@ class OptimizeCommand extends Command
     {
         $this->info('🗑️  Clearing Filex cache...');
         
-        if (FilexCacheService::flush()) {
+        if ($this->callFilexCacheFlush()) {
             $this->info('✅ Cache cleared successfully');
         } else {
             $this->error('❌ Failed to clear cache');
         }
+    }
+    
+    /**
+     * Wrapper method for FilexCacheService::flush to make testing easier
+     */
+    protected function callFilexCacheFlush(): bool
+    {
+        return FilexCacheService::flush();
     }
 
     private function analyzePerformance(): void
     {
         $this->info('📊 Analyzing performance metrics...');
         
-        $metrics = PerformanceMonitor::getAggregatedMetrics();
+        $metrics = $this->callGetAggregatedMetrics();
         
         if (empty($metrics)) {
             $this->warn('⚠️  No performance metrics found');
@@ -149,7 +157,7 @@ class OptimizeCommand extends Command
         $this->optimizeConfig();
         
         // Clear old performance metrics
-        PerformanceMonitor::clearMetrics();
+        $this->callPerformanceMonitorClearMetrics();
         
         $this->info('✅ Optimization complete!');
         $this->line('');
@@ -174,5 +182,21 @@ class OptimizeCommand extends Command
         $factor = floor((strlen($bytes) - 1) / 3);
         
         return sprintf("%.2f %s", $bytes / pow(1024, $factor), $units[$factor] ?? 'TB');
+    }
+    
+    /**
+     * Wrapper method for PerformanceMonitor::getAggregatedMetrics to make testing easier
+     */
+    protected function callGetAggregatedMetrics(): array
+    {
+        return PerformanceMonitor::getAggregatedMetrics();
+    }
+    
+    /**
+     * Wrapper method for PerformanceMonitor::clearMetrics to make testing easier
+     */
+    protected function callPerformanceMonitorClearMetrics(): void
+    {
+        PerformanceMonitor::clearMetrics();
     }
 }
