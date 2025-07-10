@@ -14,14 +14,16 @@ class CleanupTempFilesCommand extends Command
      */
     protected $signature = 'filex:cleanup-temp 
                             {--force : Force cleanup without confirmation}
-                            {--dry-run : Show what would be cleaned without actually deleting}';
+                            {--dry-run : Show what would be cleaned without actually deleting}
+                            {--include-quarantine : Also clean up quarantined files}
+                            {--quarantine-only : Only clean quarantined files}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Clean up expired temporary files from the temp upload directory';
+    protected $description = 'Clean up expired temporary files and optionally quarantined files';
 
     protected $filexService;
 
@@ -39,6 +41,14 @@ class CleanupTempFilesCommand extends Command
      */
     public function handle(): int
     {
+        $includeQuarantine = $this->option('include-quarantine');
+        $quarantineOnly = $this->option('quarantine-only');
+        
+        if ($quarantineOnly) {
+            $this->info('Starting quarantine cleanup...');
+            return $this->handleQuarantineCleanup();
+        }
+        
         $this->info('Starting temporary file cleanup...');
 
         if ($this->option('dry-run')) {
@@ -50,7 +60,13 @@ class CleanupTempFilesCommand extends Command
             $results = $this->filexService->cleanup();
 
             if ($this->option('dry-run')) {
-                $this->displayDryRunResults($results);
+                $this->displayDryRunResults($results, 'temporary');
+                
+                if ($includeQuarantine) {
+                    $quarantineResults = $this->filexService->cleanupQuarantine();
+                    $this->displayDryRunResults($quarantineResults, 'quarantined');
+                }
+                
                 return self::SUCCESS;
             }
 
@@ -67,7 +83,15 @@ class CleanupTempFilesCommand extends Command
             }
 
             // Display results
-            $this->displayResults($results);
+            $this->displayResults($results, 'Temporary Files');
+
+            // Handle quarantine cleanup if requested
+            if ($includeQuarantine) {
+                $this->newLine();
+                $this->info('Starting quarantine cleanup...');
+                $quarantineResults = $this->filexService->cleanupQuarantine();
+                $this->displayResults($quarantineResults, 'Quarantined Files');
+            }
 
             return self::SUCCESS;
 
@@ -78,12 +102,50 @@ class CleanupTempFilesCommand extends Command
     }
 
     /**
+     * Handle quarantine-only cleanup
+     */
+    protected function handleQuarantineCleanup(): int
+    {
+        if ($this->option('dry-run')) {
+            $this->warn('DRY RUN MODE - No files will actually be deleted');
+        }
+
+        try {
+            $results = $this->filexService->cleanupQuarantine();
+
+            if ($this->option('dry-run')) {
+                $this->displayDryRunResults($results, 'quarantined');
+                return self::SUCCESS;
+            }
+
+            // Ask for confirmation unless force flag is used
+            if (!$this->option('force') && $results['cleaned_count'] > 0) {
+                $confirmed = $this->confirm(
+                    "Are you sure you want to delete {$results['cleaned_count']} expired quarantined files?"
+                );
+
+                if (!$confirmed) {
+                    $this->info('Quarantine cleanup cancelled by user.');
+                    return self::SUCCESS;
+                }
+            }
+
+            $this->displayResults($results, 'Quarantined Files');
+            return self::SUCCESS;
+
+        } catch (\Exception $e) {
+            $this->error('Quarantine cleanup failed: ' . $e->getMessage());
+            return self::FAILURE;
+        }
+    }
+
+    /**
      * Display dry run results
      */
-    protected function displayDryRunResults(array $results): void
+    protected function displayDryRunResults(array $results, string $type = 'temporary'): void
     {
         if ($results['cleaned_count'] > 0) {
-            $this->info("Would clean up {$results['cleaned_count']} expired temporary files:");
+            $this->info("Would clean up {$results['cleaned_count']} expired {$type} files:");
             
             $this->table(
                 ['File Path', 'Status'],
@@ -92,7 +154,7 @@ class CleanupTempFilesCommand extends Command
                 })->toArray()
             );
         } else {
-            $this->info('No expired temporary files found.');
+            $this->info("No expired {$type} files found.");
         }
 
         if ($results['error_count'] > 0) {
@@ -106,10 +168,10 @@ class CleanupTempFilesCommand extends Command
     /**
      * Display actual cleanup results
      */
-    protected function displayResults(array $results): void
+    protected function displayResults(array $results, string $type = 'Files'): void
     {
         if ($results['cleaned_count'] > 0) {
-            $this->info("Successfully cleaned up {$results['cleaned_count']} expired temporary files.");
+            $this->info("Successfully cleaned up {$results['cleaned_count']} expired {$type}.");
             
             if ($this->output->isVerbose()) {
                 $this->table(
@@ -120,7 +182,7 @@ class CleanupTempFilesCommand extends Command
                 );
             }
         } else {
-            $this->info('No expired temporary files found.');
+            $this->info("No expired {$type} found.");
         }
 
         if ($results['error_count'] > 0) {
@@ -132,7 +194,7 @@ class CleanupTempFilesCommand extends Command
 
         // Show summary
         $this->newLine();
-        $this->info('Cleanup Summary:');
+        $this->info("Cleanup Summary ({$type}):");
         $this->line("  Files cleaned: {$results['cleaned_count']}");
         $this->line("  Errors: {$results['error_count']}");
     }

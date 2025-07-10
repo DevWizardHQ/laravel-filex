@@ -15,6 +15,7 @@ Laravel Filex is a powerful and reusable Blade component that brings modern, asy
 -   🔄 **Chunked Uploads**: Handle large files with automatic chunking
 -   ⏱️ **Temporary Storage**: Safe temporary file handling with automatic cleanup
 -   🔒 **Validation**: Client-side and server-side validation support
+-   🛡️ **Security**: Advanced threat detection, file signature validation, and quarantine system
 -   🎨 **Customizable**: Extensive configuration options and styling flexibility
 -   ☁️ **Cloud Ready**: Support for local, S3, and other Laravel storage drivers
 -   🌐 **Localization**: Multi-language support
@@ -331,6 +332,67 @@ php artisan filex:cleanup-temp --force
 ```
 
 The cleanup is automatically scheduled based on your configuration.
+
+## Security Features
+
+Laravel Filex includes comprehensive security features to protect your application from malicious file uploads:
+
+### Suspicious File Detection
+
+The package automatically scans uploaded files for potential threats:
+
+- **File signature validation**: Verifies file headers match declared extensions
+- **Content analysis**: Scans text files for suspicious patterns (PHP code, scripts, etc.)
+- **Filename validation**: Detects suspicious filenames and path traversal attempts
+- **Executable detection**: Identifies and blocks executable files
+
+### Configuration
+
+Enable or disable security features in your `.env` file:
+
+```env
+# Security settings
+FILEX_SUSPICIOUS_DETECTION_ENABLED=true
+FILEX_QUARANTINE_ENABLED=true
+FILEX_SCAN_CONTENT=true
+FILEX_VALIDATE_SIGNATURES=true
+```
+
+### Quarantine System
+
+Suspicious files are automatically quarantined instead of being processed:
+
+```bash
+# Clean up quarantined files
+php artisan filex:cleanup-temp --quarantine-only
+
+# Clean up both temp and quarantined files
+php artisan filex:cleanup-temp --include-quarantine
+```
+
+### Custom Security Patterns
+
+You can customize detection patterns in `config/filex.php`:
+
+```php
+'security' => [
+    'suspicious_filename_patterns' => [
+        '/\.(php|phtml|php3|php4|php5)$/i',
+        '/\.(asp|aspx|jsp|cfm)$/i',
+        // Add your custom patterns
+        '/\.backup$/i',
+        '/malicious_pattern/i',
+    ],
+    'suspicious_content_patterns' => [
+        '/<\?php/i',
+        '/eval\s*\(/i',
+        // Add your custom patterns
+        '/dangerous_function\s*\(/i',
+    ],
+],
+```
+
+For detailed security configuration, see [SECURITY_CONFIG.md](SECURITY_CONFIG.md).
 
 ## Testing
 

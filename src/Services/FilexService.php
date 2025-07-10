@@ -72,6 +72,17 @@ class FilexService
     }
 
     /**
+     * Clear configuration cache (useful for testing)
+     */
+    public static function clearConfigCache(): void
+    {
+        self::$configCache = [];
+        self::$allowedExtensions = null;
+        self::$allowedMimeTypes = null;
+        self::$suspiciousPatterns = null;
+    }
+
+    /**
      * Validate temporary file
      */
     public function validateTemp(string $tempPath, string $originalName): array
@@ -638,6 +649,11 @@ class FilexService
     public function validateSecure(string $tempPath, string $originalName): array
     {
         try {
+            // Check if suspicious detection is enabled
+            if (!$this->getCachedConfig('filex.security.suspicious_detection.enabled', true)) {
+                return $this->validateTemp($tempPath, $originalName);
+            }
+
             $tempDisk = $this->getTempDisk();
             
             if (!$tempDisk->exists($tempPath)) {
@@ -654,9 +670,11 @@ class FilexService
                 return $basicValidation;
             }
 
-            // 2. File signature validation
-            if (!$this->validateFileSignature($filePath, $extension)) {
-                return ['valid' => false, 'message' => 'File signature validation failed'];
+            // 2. File signature validation (if enabled)
+            if ($this->getCachedConfig('filex.security.suspicious_detection.validate_signatures', true)) {
+                if (!$this->validateFileSignature($filePath, $extension)) {
+                    return ['valid' => false, 'message' => 'File signature validation failed'];
+                }
             }
 
             // 3. Content-based validation for specific file types
@@ -664,9 +682,11 @@ class FilexService
                 return ['valid' => false, 'message' => 'File content validation failed'];
             }
 
-            // 4. Security scanning
-            if (!$this->scanForThreats($filePath, $originalName)) {
-                return ['valid' => false, 'message' => 'Security scan failed'];
+            // 4. Security scanning (if enabled)
+            if ($this->getCachedConfig('filex.security.suspicious_detection.scan_content', true)) {
+                if (!$this->scanForThreats($filePath, $originalName)) {
+                    return ['valid' => false, 'message' => 'Security scan failed'];
+                }
             }
 
             return ['valid' => true, 'message' => 'File passed all security validations'];
@@ -867,13 +887,14 @@ class FilexService
         $header = fread($handle, 16);
         fclose($handle);
 
-        $executableSignatures = [
-            "\x4D\x5A", // PE/EXE files
-            "\x7FELF", // ELF files
-            "\xCF\xFA\xED\xFE", // Mach-O files
-            "#!/bin/", // Shell scripts
-            "#!/usr/bin/", // Shell scripts
-        ];
+        // Get executable signatures from config
+        $executableSignatures = $this->getCachedConfig('filex.security.executable_signatures', [
+            "\x4D\x5A",           // PE/EXE files
+            "\x7FELF",            // ELF files
+            "\xCF\xFA\xED\xFE",   // Mach-O files
+            "#!/bin/",            // Shell scripts
+            "#!/usr/bin/",        // Shell scripts
+        ]);
 
         foreach ($executableSignatures as $signature) {
             if (str_starts_with($header, $signature)) {
@@ -899,18 +920,15 @@ class FilexService
             return true;
         }
 
-        // Double extensions
-        if (preg_match('/\.[a-z]{2,4}\.[a-z]{2,4}$/i', $filename)) {
-            return true;
-        }
-
-        // Suspicious patterns
-        $suspiciousPatterns = [
+        // Get suspicious patterns from config
+        $suspiciousPatterns = $this->getCachedConfig('filex.security.suspicious_filename_patterns', [
+            // Default patterns if config is not available
+            '/\.[a-z]{2,4}\.[a-z]{2,4}$/i',
             '/\.(php|phtml|php3|php4|php5)$/i',
             '/\.(asp|aspx|jsp|cfm)$/i',
             '/\.(exe|bat|cmd|scr)$/i',
             '/\.(htaccess|htpasswd)$/i',
-        ];
+        ]);
 
         foreach ($suspiciousPatterns as $pattern) {
             if (preg_match($pattern, $filename)) {
@@ -928,7 +946,9 @@ class FilexService
     {
         // Only scan text-based files to avoid false positives
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $textExtensions = ['txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv'];
+        $textExtensions = $this->getCachedConfig('filex.security.text_extensions_to_scan', [
+            'txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv'
+        ]);
         
         if (!in_array($extension, $textExtensions)) {
             return false; // Skip binary files
@@ -947,11 +967,12 @@ class FilexService
             return false;
         }
 
-        // Cache suspicious patterns for better performance
+        // Get suspicious patterns from config with caching
         if (self::$suspiciousPatterns === null) {
-            self::$suspiciousPatterns = [
+            self::$suspiciousPatterns = $this->getCachedConfig('filex.security.suspicious_content_patterns', [
+                // Default patterns if config is not available
                 '/<\?php/i',
-                '/<%[^>]*%>/i', // ASP tags
+                '/<%[^>]*%>/i',
                 '/javascript:/i',
                 '/vbscript:/i',
                 '/onload\s*=/i',
@@ -962,7 +983,7 @@ class FilexService
                 '/shell_exec\s*\(/i',
                 '/passthru\s*\(/i',
                 '/base64_decode\s*\(/i',
-            ];
+            ]);
         }
 
         // Use optimized pattern matching with early exit
@@ -981,8 +1002,14 @@ class FilexService
     public function quarantineFile(string $tempPath, string $reason): bool
     {
         try {
+            // Check if quarantine is enabled
+            if (!$this->getCachedConfig('filex.security.suspicious_detection.quarantine_enabled', true)) {
+                return false;
+            }
+
             $tempDisk = $this->getTempDisk();
-            $quarantineDir = 'quarantine/' . date('Y/m/d');
+            $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
+            $quarantineDir = $quarantineBaseDir . '/' . date('Y/m/d');
             $quarantineFile = $quarantineDir . '/' . basename($tempPath) . '_' . time();
             
             // Create quarantine directory
@@ -1020,6 +1047,104 @@ class FilexService
             ]);
             return false;
         }
+    }
+
+    /**
+     * Check if suspicious detection is enabled
+     */
+    public function isSuspiciousDetectionEnabled(): bool
+    {
+        return $this->getCachedConfig('filex.security.suspicious_detection.enabled', true);
+    }
+
+    /**
+     * Clean up quarantined files based on retention policy
+     */
+    public function cleanupQuarantine(): array
+    {
+        $tempDisk = $this->getTempDisk();
+        $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
+        $retentionDays = $this->getCachedConfig('filex.security.quarantine.retention_days', 30);
+        $autoCleanup = $this->getCachedConfig('filex.security.quarantine.auto_cleanup', true);
+        
+        $cleaned = [];
+        $errors = [];
+
+        if (!$autoCleanup) {
+            return [
+                'cleaned' => $cleaned,
+                'errors' => ['Quarantine auto-cleanup is disabled'],
+                'cleaned_count' => 0,
+                'error_count' => 1
+            ];
+        }
+
+        try {
+            $quarantineFiles = $tempDisk->allFiles($quarantineBaseDir);
+            $cutoffTime = now()->subDays($retentionDays);
+            
+            foreach ($quarantineFiles as $file) {
+                // Skip metadata files, they'll be handled with their parent files
+                if (str_ends_with($file, '.meta')) {
+                    continue;
+                }
+
+                try {
+                    $metadataPath = $file . '.meta';
+                    
+                    if ($tempDisk->exists($metadataPath)) {
+                        $metadata = json_decode($tempDisk->get($metadataPath), true);
+                        
+                        if (isset($metadata['quarantined_at'])) {
+                            $quarantinedAt = Carbon::parse($metadata['quarantined_at']);
+                            
+                            if ($quarantinedAt->lt($cutoffTime)) {
+                                // Delete both file and metadata
+                                if ($tempDisk->delete($file) && $tempDisk->delete($metadataPath)) {
+                                    $cleaned[] = $file;
+                                } else {
+                                    $errors[] = $file;
+                                }
+                            }
+                        }
+                    } else {
+                        // File without metadata, check file age
+                        $fileTime = $tempDisk->lastModified($file);
+                        
+                        if ($fileTime && $fileTime < $cutoffTime->timestamp) {
+                            if ($tempDisk->delete($file)) {
+                                $cleaned[] = $file;
+                            } else {
+                                $errors[] = $file;
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error cleaning quarantine file: ' . $e->getMessage(), ['file' => $file]);
+                    $errors[] = $file;
+                }
+            }
+
+            // Clean up empty quarantine directories
+            $quarantineDirs = $tempDisk->directories($quarantineBaseDir);
+            foreach ($quarantineDirs as $dir) {
+                $files = $tempDisk->allFiles($dir);
+                if (empty($files)) {
+                    $tempDisk->deleteDirectory($dir);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Quarantine cleanup error: ' . $e->getMessage());
+            $errors[] = 'General cleanup error: ' . $e->getMessage();
+        }
+
+        return [
+            'cleaned' => $cleaned,
+            'errors' => $errors,
+            'cleaned_count' => count($cleaned),
+            'error_count' => count($errors)
+        ];
     }
 
     /**

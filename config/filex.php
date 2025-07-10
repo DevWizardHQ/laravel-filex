@@ -322,4 +322,160 @@ return [
         'max_log_entries' => env('FILEX_MAX_LOG_ENTRIES', 1000),
         'enable_profiling' => env('FILEX_ENABLE_PROFILING', false),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Security Settings
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for security features including file scanning,
+    | threat detection, and suspicious content analysis.
+    |
+    */
+    'security' => [
+        /*
+        |--------------------------------------------------------------------------
+        | Suspicious Detection
+        |--------------------------------------------------------------------------
+        |
+        | Enable or disable suspicious file detection and content scanning.
+        |
+        */
+        'suspicious_detection' => [
+            'enabled' => env('FILEX_SUSPICIOUS_DETECTION_ENABLED', true),
+            'quarantine_enabled' => env('FILEX_QUARANTINE_ENABLED', true),
+            'scan_content' => env('FILEX_SCAN_CONTENT', true),
+            'validate_signatures' => env('FILEX_VALIDATE_SIGNATURES', true),
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suspicious Filename Patterns
+        |--------------------------------------------------------------------------
+        |
+        | Regex patterns to detect suspicious filenames.
+        |
+        */
+        'suspicious_filename_patterns' => [
+            // Double extensions
+            '/\.[a-z]{2,4}\.[a-z]{2,4}$/i',
+            
+            // Server-side scripts
+            '/\.(php|phtml|php3|php4|php5)$/i',
+            '/\.(asp|aspx|jsp|cfm)$/i',
+            
+            // Executable files
+            '/\.(exe|bat|cmd|scr|com|pif)$/i',
+            
+            // System files
+            '/\.(htaccess|htpasswd)$/i',
+            
+            // Shell scripts
+            '/\.(sh|bash|zsh|csh)$/i',
+            
+            // Other potentially dangerous files
+            '/\.(vbs|js|jar|war|ear)$/i',
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suspicious Content Patterns
+        |--------------------------------------------------------------------------
+        |
+        | Regex patterns to detect suspicious content in text files.
+        |
+        */
+        'suspicious_content_patterns' => [
+            // PHP code injection
+            '/<\?php/i',
+            '/<\?=/i',
+            
+            // ASP/JSP tags
+            '/<%[^>]*%>/i',
+            
+            // JavaScript execution
+            '/javascript:/i',
+            '/vbscript:/i',
+            
+            // Event handlers
+            '/onload\s*=/i',
+            '/onerror\s*=/i',
+            '/onclick\s*=/i',
+            '/onmouseover\s*=/i',
+            
+            // Dangerous functions
+            '/eval\s*\(/i',
+            '/exec\s*\(/i',
+            '/system\s*\(/i',
+            '/shell_exec\s*\(/i',
+            '/passthru\s*\(/i',
+            '/base64_decode\s*\(/i',
+            '/file_get_contents\s*\(/i',
+            '/file_put_contents\s*\(/i',
+            '/fopen\s*\(/i',
+            '/fwrite\s*\(/i',
+            
+            // SQL injection attempts
+            '/union\s+select/i',
+            '/drop\s+table/i',
+            '/insert\s+into/i',
+            '/update\s+set/i',
+            '/delete\s+from/i',
+            
+            // Command injection
+            '/\$\(.*\)/i',
+            '/`.*`/i',
+            '/\|\s*nc\s/i',
+            '/\|\s*netcat\s/i',
+            '/\|\s*wget\s/i',
+            '/\|\s*curl\s/i',
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Executable File Signatures
+        |--------------------------------------------------------------------------
+        |
+        | Binary signatures to detect executable files.
+        |
+        */
+        'executable_signatures' => [
+            "\x4D\x5A",           // PE/EXE files (MZ header)
+            "\x7FELF",            // ELF files (Linux executables)
+            "\xCF\xFA\xED\xFE",   // Mach-O files (macOS executables)
+            "#!/bin/",            // Shell scripts
+            "#!/usr/bin/",        // Shell scripts
+            "#!\x20/bin/",        // Shell scripts with space
+            "#!\x09/bin/",        // Shell scripts with tab
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | File Extensions to Scan for Content
+        |--------------------------------------------------------------------------
+        |
+        | File extensions that should be scanned for suspicious content.
+        | Only text-based files to avoid false positives.
+        |
+        */
+        'text_extensions_to_scan' => [
+            'txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv',
+            'php', 'asp', 'jsp', 'cfm', 'py', 'rb', 'pl', 'sh',
+            'sql', 'conf', 'ini', 'cfg', 'log', 'md', 'yml', 'yaml'
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Quarantine Settings
+        |--------------------------------------------------------------------------
+        |
+        | Settings for quarantining suspicious files.
+        |
+        */
+        'quarantine' => [
+            'directory' => 'quarantine',
+            'retention_days' => env('FILEX_QUARANTINE_RETENTION_DAYS', 30),
+            'auto_cleanup' => env('FILEX_QUARANTINE_AUTO_CLEANUP', true),
+        ],
+    ],
 ];
