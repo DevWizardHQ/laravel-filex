@@ -32,6 +32,7 @@ class CleanupTempFilesCommand extends Command
     {
         parent::__construct();
         $this->filexService = $filexService;
+        $this->description = __('filex::translations.commands.cleanup.description');
     }
 
     /**
@@ -41,12 +42,12 @@ class CleanupTempFilesCommand extends Command
     {
         $quarantineOnly = $this->option('quarantine-only');
         if ($quarantineOnly) {
-            $this->info('Starting quarantine cleanup...');
+            $this->info(__('filex::translations.commands.cleanup.quarantine_starting'));
             return $this->handleQuarantineCleanup();
         }
-        $this->info('Starting temporary file cleanup...');
+        $this->info(__('filex::translations.commands.cleanup.starting'));
         if ($this->option('dry-run')) {
-            $this->warn('DRY RUN MODE - No files will actually be deleted');
+            $this->warn(__('filex::translations.commands.cleanup.dry_run'));
         }
         try {
             // Get list of files that would be cleaned
@@ -60,23 +61,23 @@ class CleanupTempFilesCommand extends Command
             // Ask for confirmation unless force flag is used
             if (!$this->option('force') && $results['cleaned_count'] > 0) {
                 $confirmed = $this->confirm(
-                    "Are you sure you want to delete {$results['cleaned_count']} expired temporary files?"
+                    __('filex::translations.commands.cleanup.confirm', ['count' => $results['cleaned_count']])
                 );
                 if (!$confirmed) {
-                    $this->info('Cleanup cancelled by user.');
+                    $this->info(__('filex::translations.commands.cleanup.cancelled'));
                     return self::SUCCESS;
                 }
             }
             // Display results
-            $this->displayResults($results, 'Temporary Files');
+            $this->displayResults($results, __('filex::translations.commands.cleanup.type_temporary'));
             // Handle quarantine cleanup (always included)
             $this->newLine();
-            $this->info('Starting quarantine cleanup...');
+            $this->info(__('filex::translations.commands.cleanup.quarantine_starting'));
             $quarantineResults = $this->filexService->cleanupQuarantine();
-            $this->displayResults($quarantineResults, 'Quarantined Files');
+            $this->displayResults($quarantineResults, __('filex::translations.commands.cleanup.type_quarantined'));
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Cleanup failed: ' . $e->getMessage());
+            $this->error(__('filex::translations.commands.cleanup.failed', ['error' => $e->getMessage()]));
             return self::FAILURE;
         }
     }
@@ -87,7 +88,7 @@ class CleanupTempFilesCommand extends Command
     protected function handleQuarantineCleanup(): int
     {
         if ($this->option('dry-run')) {
-            $this->warn('DRY RUN MODE - No files will actually be deleted');
+            $this->warn(__('filex::translations.commands.cleanup.dry_run'));
         }
 
         try {
@@ -101,19 +102,19 @@ class CleanupTempFilesCommand extends Command
             // Ask for confirmation unless force flag is used
             if (!$this->option('force') && $results['cleaned_count'] > 0) {
                 $confirmed = $this->confirm(
-                    "Are you sure you want to delete {$results['cleaned_count']} expired quarantined files?"
+                    __('filex::translations.commands.cleanup.confirm', ['count' => $results['cleaned_count']])
                 );
 
                 if (!$confirmed) {
-                    $this->info('Quarantine cleanup cancelled by user.');
+                    $this->info(__('filex::translations.commands.cleanup.cancelled'));
                     return self::SUCCESS;
                 }
             }
 
-            $this->displayResults($results, 'Quarantined Files');
+            $this->displayResults($results, __('filex::translations.commands.cleanup.type_quarantined'));
             return self::SUCCESS;
         } catch (\Exception $e) {
-            $this->error('Quarantine cleanup failed: ' . $e->getMessage());
+            $this->error(__('filex::translations.commands.cleanup.failed', ['error' => $e->getMessage()]));
             return self::FAILURE;
         }
     }
@@ -124,7 +125,7 @@ class CleanupTempFilesCommand extends Command
     protected function displayDryRunResults(array $results, string $type = 'temporary'): void
     {
         if ($results['cleaned_count'] > 0) {
-            $this->info("Would clean up {$results['cleaned_count']} expired {$type} files:");
+            $this->info(__('filex::translations.commands.cleanup.files_found', ['count' => $results['cleaned_count']]));
 
             $this->table(
                 ['File Path', 'Status'],
@@ -150,7 +151,7 @@ class CleanupTempFilesCommand extends Command
     protected function displayResults(array $results, string $type = 'Files'): void
     {
         if ($results['cleaned_count'] > 0) {
-            $this->info("Successfully cleaned up {$results['cleaned_count']} expired {$type}.");
+            $this->info(__('filex::translations.commands.cleanup.files_deleted', ['count' => $results['cleaned_count']]));
 
             if ($this->output->isVerbose()) {
                 $this->table(
@@ -161,11 +162,11 @@ class CleanupTempFilesCommand extends Command
                 );
             }
         } else {
-            $this->info("No expired {$type} found.");
+            $this->info(__('filex::translations.commands.cleanup.no_files'));
         }
 
         if ($results['error_count'] > 0) {
-            $this->error("Encountered {$results['error_count']} errors during cleanup:");
+            $this->error(__('filex::translations.commands.cleanup.error_count', ['count' => $results['error_count']]));
             foreach ($results['errors'] as $error) {
                 $this->line("  - {$error}");
             }

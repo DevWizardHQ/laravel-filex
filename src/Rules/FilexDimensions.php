@@ -8,7 +8,7 @@ use Closure;
 
 /**
  * Filex image dimensions validation rule
- * 
+ *
  * Usage: 'filex:dimensions:min_width=100,min_height=200,max_width=1000,max_height=1000,width=300,height=300'
  */
 class FilexDimensions implements ValidationRule
@@ -25,22 +25,22 @@ class FilexDimensions implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
         $filePath = $tempDisk->path($value);
-        
+
         // Check if it's an image
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo === false) {
-            $fail('The :attribute must be an image.');
+            $fail(__('filex::validation.must_be_image'));
             return;
         }
 
@@ -51,44 +51,44 @@ class FilexDimensions implements ValidationRule
             switch ($constraint) {
                 case 'min_width':
                     if ($width < $value) {
-                        $fail("The :attribute has invalid image dimensions. Minimum width is {$value}px.");
+                        $fail(__('filex::validation.min_width', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'max_width':
                     if ($width > $value) {
-                        $fail("The :attribute has invalid image dimensions. Maximum width is {$value}px.");
+                        $fail(__('filex::validation.max_width', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'min_height':
                     if ($height < $value) {
-                        $fail("The :attribute has invalid image dimensions. Minimum height is {$value}px.");
+                        $fail(__('filex::validation.min_height', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'max_height':
                     if ($height > $value) {
-                        $fail("The :attribute has invalid image dimensions. Maximum height is {$value}px.");
+                        $fail(__('filex::validation.max_height', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'width':
                     if ($width != $value) {
-                        $fail("The :attribute has invalid image dimensions. Width must be exactly {$value}px.");
+                        $fail(__('filex::validation.exact_width', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'height':
                     if ($height != $value) {
-                        $fail("The :attribute has invalid image dimensions. Height must be exactly {$value}px.");
+                        $fail(__('filex::validation.exact_height', ['value' => $value]));
                         return;
                     }
                     break;
                 case 'ratio':
                     $actualRatio = $width / $height;
                     if (abs($actualRatio - $value) > 0.01) {
-                        $fail("The :attribute has invalid image dimensions. Aspect ratio must be {$value}.");
+                        $fail(__('filex::validation.aspect_ratio', ['value' => $value]));
                         return;
                     }
                     break;

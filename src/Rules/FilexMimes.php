@@ -9,14 +9,14 @@ use Closure;
 
 /**
  * Filex MIME type validation rule
- * 
+ *
  * Usage: 'filex:mimes:pdf,jpeg,png'
  */
 class FilexMimes implements ValidationRule
 {
     protected $allowedMimes;
     protected $filexService;
-    
+
     /**
      * Static cache for extension to MIME type mappings
      */
@@ -33,19 +33,19 @@ class FilexMimes implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $metadata = $this->filexService->getTempMeta($value);
         if (!$metadata) {
-            $fail('The :attribute file not found or expired.');
+            $fail(__('filex::validation.file_not_found_or_expired'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
@@ -54,14 +54,14 @@ class FilexMimes implements ValidationRule
 
         if (!in_array($realMimeType, $this->allowedMimes)) {
             $allowedExtensions = array_keys($this->mimesToExtensions());
-            $fail('The :attribute must be a file of type: ' . implode(', ', $allowedExtensions) . '.');
+            $fail(__('filex::validation.invalid_mime_type', ['values' => implode(', ', $allowedExtensions)]));
         }
     }
 
     protected function detectRealMimeType(string $filePath): string
     {
         static $finfo = null;
-        
+
         if (!file_exists($filePath)) {
             return 'application/octet-stream';
         }

@@ -8,7 +8,7 @@ use Closure;
 
 /**
  * Filex MIME types validation rule (exact MIME type matching)
- * 
+ *
  * Usage: 'filex:mimetypes:application/pdf,image/jpeg'
  */
 class FilexMimetypes implements ValidationRule
@@ -25,13 +25,13 @@ class FilexMimetypes implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
@@ -39,7 +39,7 @@ class FilexMimetypes implements ValidationRule
         $realMimeType = $this->detectRealMimeType($filePath);
 
         if (!in_array($realMimeType, $this->allowedMimeTypes)) {
-            $fail('The :attribute file must be of type: ' . implode(', ', $this->allowedMimeTypes) . '.');
+            $fail(__('filex::validation.invalid_mimetypes', ['values' => implode(', ', $this->allowedMimeTypes)]));
         }
     }
 

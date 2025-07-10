@@ -8,7 +8,7 @@ use Closure;
 
 /**
  * Filex maximum file size validation rule
- * 
+ *
  * Usage: 'filex:max:10000' (10000 bytes)
  */
 class FilexMax implements ValidationRule
@@ -25,20 +25,20 @@ class FilexMax implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
         $fileSize = $tempDisk->size($value);
 
         if ($fileSize > $this->maxSize) {
-            $fail('The :attribute may not be greater than ' . $this->formatBytes($this->maxSize) . '.');
+            $fail(__('filex::validation.file_too_large', ['max' => $this->formatBytes($this->maxSize)]));
         }
     }
 

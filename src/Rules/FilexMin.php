@@ -8,7 +8,7 @@ use Closure;
 
 /**
  * Filex minimum file size validation rule
- * 
+ *
  * Usage: 'filex:min:100' (100 bytes)
  */
 class FilexMin implements ValidationRule
@@ -25,20 +25,20 @@ class FilexMin implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
         $fileSize = $tempDisk->size($value);
 
         if ($fileSize < $this->minSize) {
-            $fail('The :attribute must be at least ' . $this->formatBytes($this->minSize) . '.');
+            $fail(__('filex::validation.file_too_small', ['min' => $this->formatBytes($this->minSize)]));
         }
     }
 

@@ -15,17 +15,17 @@ class FilexService
      * Static cache for configuration values
      */
     private static array $configCache = [];
-    
+
     /**
      * Static cache for allowed extensions
      */
     private static ?array $allowedExtensions = null;
-    
+
     /**
      * Static cache for allowed MIME types
      */
     private static ?array $allowedMimeTypes = null;
-    
+
     /**
      * Static cache for suspicious patterns (micro-optimization)
      */
@@ -37,17 +37,17 @@ class FilexService
     {
         $extension = pathinfo($originalName, PATHINFO_EXTENSION);
         $name = pathinfo($originalName, PATHINFO_FILENAME);
-        
+
         // Use more efficient random generation
         $timestamp = now()->format('YmdHis');
         $random = bin2hex(random_bytes(4)); // More efficient than Str::random(8)
-        
+
         // Use faster slug generation for performance
         $slugName = $this->fastSlug($name);
-        
+
         return $slugName . '_' . $timestamp . '_' . $random . '.' . $extension;
     }
-    
+
     /**
      * Faster slug generation without regex
      */
@@ -58,7 +58,7 @@ class FilexService
         $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
         return trim($slug, '-');
     }
-    
+
     /**
      * Cached configuration getter
      */
@@ -67,7 +67,7 @@ class FilexService
         if (!isset(self::$configCache[$key])) {
             self::$configCache[$key] = config($key, $default);
         }
-        
+
         return self::$configCache[$key];
     }
 
@@ -89,16 +89,16 @@ class FilexService
     {
         try {
             $tempDisk = $this->getTempDisk();
-            
+
             if (!$tempDisk->exists($tempPath)) {
-                return ['valid' => false, 'message' => 'File not found'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_not_found')];
             }
 
             $fileSize = $tempDisk->size($tempPath);
             $maxSize = config('filex.max_file_size', 10) * 1024 * 1024; // Convert MB to bytes
 
             if ($fileSize > $maxSize) {
-                return ['valid' => false, 'message' => 'File size exceeds maximum allowed size'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_size_exceeds_limit')];
             }
 
             // Get file extension
@@ -106,7 +106,7 @@ class FilexService
             $allowedExtensions = config('filex.allowed_extensions', []);
 
             if (!in_array($extension, $allowedExtensions)) {
-                return ['valid' => false, 'message' => 'File type not allowed'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_type_not_allowed')];
             }
 
             // Additional MIME type validation for security
@@ -118,14 +118,13 @@ class FilexService
             $allowedMimeTypes = config('filex.allowed_mime_types', []);
 
             if (!in_array($mimeType, $allowedMimeTypes)) {
-                return ['valid' => false, 'message' => 'Invalid file type detected'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.invalid_file_type_detected')];
             }
 
-            return ['valid' => true, 'message' => 'File is valid'];
-
+            return ['valid' => true, 'message' => __('filex::translations.validation')];
         } catch (\Exception $e) {
             Log::error('File validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
-            return ['valid' => false, 'message' => 'File validation failed'];
+            return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
     }
 
@@ -177,7 +176,7 @@ class FilexService
         try {
             $tempDisk = $this->getTempDisk();
             $deleted = true;
-            
+
             if ($tempDisk->exists($tempPath)) {
                 $deleted = $tempDisk->delete($tempPath);
             }
@@ -217,7 +216,7 @@ class FilexService
 
                 $metadata = $this->getTempMeta($tempPath);
                 $originalName = $metadata['original_name'] ?? basename($tempPath);
-                
+
                 // Generate final filename
                 $finalFileName = $this->generateFileName($originalName);
                 $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
@@ -234,7 +233,7 @@ class FilexService
                 if ($moved) {
                     // Clean up temp file
                     $this->deleteTemp($tempPath);
-                    
+
                     $diskInstance = Storage::disk($disk);
                     $results[] = [
                         'success' => true,
@@ -245,7 +244,6 @@ class FilexService
                 } else {
                     $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
                 }
-
             } catch (\Exception $e) {
                 Log::error('Failed to move temp file: ' . $e->getMessage(), ['temp_path' => $tempPath]);
                 $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => $e->getMessage()];
@@ -266,7 +264,7 @@ class FilexService
 
         try {
             $tempFiles = $tempDisk->allFiles('temp');
-            
+
             foreach ($tempFiles as $file) {
                 // Skip metadata files, they'll be handled with their parent files
                 if (str_ends_with($file, '.meta')) {
@@ -274,10 +272,10 @@ class FilexService
                 }
 
                 $metadata = $this->getTempMeta($file);
-                
+
                 if ($metadata && isset($metadata['expires_at'])) {
                     $expiresAt = Carbon::parse($metadata['expires_at']);
-                    
+
                     if ($expiresAt->isPast()) {
                         if ($this->deleteTemp($file)) {
                             $cleaned[] = $file;
@@ -289,7 +287,7 @@ class FilexService
                     // File without metadata or expired metadata, check file age
                     $fileTime = $tempDisk->lastModified($file);
                     $maxAge = config('filex.temp_expiry_hours', 24) * 3600;
-                    
+
                     if (time() - $fileTime > $maxAge) {
                         if ($this->deleteTemp($file)) {
                             $cleaned[] = $file;
@@ -308,7 +306,6 @@ class FilexService
                     $tempDisk->deleteDirectory($chunkDir);
                 }
             }
-
         } catch (\Exception $e) {
             Log::error('Temp file cleanup error: ' . $e->getMessage());
             $errors[] = 'General cleanup error: ' . $e->getMessage();
@@ -332,7 +329,7 @@ class FilexService
         $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
         $pow = min($pow, count($units) - 1);
         $bytes /= (1 << (10 * $pow));
-        
+
         return round($bytes, 2) . ' ' . $units[$pow];
     }
 
@@ -346,7 +343,7 @@ class FilexService
                 $this->getCachedConfig('filex.allowed_extensions', [])
             );
         }
-        
+
         return isset(self::$allowedExtensions[strtolower($extension)]);
     }
 
@@ -360,7 +357,7 @@ class FilexService
                 $this->getCachedConfig('filex.allowed_mime_types', [])
             );
         }
-        
+
         return isset(self::$allowedMimeTypes[$mimeType]);
     }
 
@@ -415,18 +412,18 @@ class FilexService
             }
 
             $success = $targetDisk->writeStream($targetPath, $sourceHandle);
-            
+
             if (is_resource($sourceHandle)) {
                 fclose($sourceHandle);
             }
-            
+
             return $success !== false;
         } catch (\Exception $e) {
             Log::error('Stream file copy failed: ' . $e->getMessage(), [
                 'source' => $sourcePath,
                 'target' => $targetPath
             ]);
-            
+
             // Fallback to regular copy
             try {
                 return $targetDisk->put($targetPath, $sourceDisk->get($sourcePath));
@@ -444,34 +441,34 @@ class FilexService
     {
         $disk = $disk ?? config('filex.temp_disk', 'local');
         $diskInstance = Storage::disk($disk);
-        
+
         if (!$filename) {
             $filename = $this->generateFileName($file->getClientOriginalName());
         }
-        
+
         $path = trim($directory, '/') . '/' . $filename;
-        
+
         // Ensure directory exists
         $dir = dirname($path);
         if (!$diskInstance->exists($dir)) {
             $diskInstance->makeDirectory($dir);
         }
-        
+
         // Use streaming to store the file
         $fileStream = fopen($file->getRealPath(), 'rb');
         if (!$fileStream) {
-            throw new \RuntimeException('Could not open uploaded file for reading');
+            throw new \RuntimeException(__('filex::translations.errors.chunk_file_error', ['file' => $file->getRealPath()]));
         }
-        
+
         try {
             $success = $diskInstance->writeStream($path, $fileStream);
             if ($success === false) {
-                throw new \RuntimeException('Failed to write uploaded file to storage');
+                throw new \RuntimeException(__('filex::translations.errors.output_file_error'));
             }
         } finally {
             fclose($fileStream);
         }
-        
+
         return $path;
     }
 
@@ -482,35 +479,35 @@ class FilexService
     {
         $disk = $disk ?? config('filex.temp_disk', 'local');
         $diskInstance = Storage::disk($disk);
-        
+
         if (!$filename) {
             $filename = $this->generateFileName($file->getClientOriginalName());
         }
-        
+
         $path = trim($directory, '/') . '/' . $filename;
-        
+
         // Pre-create directory to avoid repeated checks
         $dir = dirname($path);
         if (!$diskInstance->exists($dir)) {
             $diskInstance->makeDirectory($dir);
         }
-        
+
         // Use optimal buffer size based on file size
         $fileSize = $file->getSize();
         $bufferSize = $this->getBufferSize($fileSize);
-        
+
         $sourceHandle = fopen($file->getRealPath(), 'rb');
         if (!$sourceHandle) {
-            throw new \RuntimeException('Could not open uploaded file for reading');
+            throw new \RuntimeException(__('filex::translations.errors.chunk_file_error', ['file' => $file->getRealPath()]));
         }
-        
+
         $targetHandle = $diskInstance->writeStream($path, $sourceHandle);
-        
+
         if ($targetHandle === false) {
             fclose($sourceHandle);
-            throw new \RuntimeException('Failed to write uploaded file to storage');
+            throw new \RuntimeException(__('filex::translations.errors.output_file_error'));
         }
-        
+
         return $path;
     }
 
@@ -521,9 +518,9 @@ class FilexService
     {
         try {
             $tempDisk = $this->getTempDisk();
-            
+
             if (!$tempDisk->exists($tempPath)) {
-                return ['valid' => false, 'message' => 'File not found'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_not_found')];
             }
 
             // Quick size check
@@ -531,20 +528,19 @@ class FilexService
             $maxSize = config('filex.max_file_size', 10) * 1024 * 1024;
 
             if ($fileSize > $maxSize) {
-                return ['valid' => false, 'message' => 'File size exceeds maximum allowed size'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_size_exceeds_limit')];
             }
 
             // Defer expensive MIME validation if configured
             if (config('filex.performance.defer_validation', true)) {
-                return ['valid' => true, 'message' => 'File is valid (deferred validation)'];
+                return ['valid' => true, 'message' => __('filex::translations.validation')];
             }
 
             // Fall back to full validation
             return $this->validateTemp($tempPath, $originalName);
-
         } catch (\Exception $e) {
             Log::error('File validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
-            return ['valid' => false, 'message' => 'File validation failed'];
+            return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
     }
 
@@ -577,7 +573,7 @@ class FilexService
 
         // Process in batches to manage memory
         $batches = array_chunk($tempPaths, $batchSize);
-        
+
         foreach ($batches as $batch) {
             foreach ($batch as $tempPath) {
                 try {
@@ -585,13 +581,13 @@ class FilexService
                     $results[] = $result;
                 } catch (\Exception $e) {
                     $results[] = [
-                        'success' => false, 
-                        'tempPath' => $tempPath, 
+                        'success' => false,
+                        'tempPath' => $tempPath,
                         'message' => $e->getMessage()
                     ];
                 }
             }
-            
+
             // Force garbage collection between batches
             if (function_exists('gc_collect_cycles')) {
                 gc_collect_cycles();
@@ -607,16 +603,16 @@ class FilexService
     protected function moveFile(string $tempPath, string $targetDirectory, string $disk, $tempDisk): array
     {
         if (!str_starts_with($tempPath, 'temp/')) {
-            return ['success' => false, 'tempPath' => $tempPath, 'message' => 'Invalid temp path'];
+            return ['success' => false, 'tempPath' => $tempPath, 'message' => __('filex::translations.errors.invalid_file_path')];
         }
 
         if (!$tempDisk->exists($tempPath)) {
-            return ['success' => false, 'tempPath' => $tempPath, 'message' => 'Temp file not found'];
+            return ['success' => false, 'tempPath' => $tempPath, 'message' => __('filex::translations.errors.file_not_found')];
         }
 
         $metadata = $this->getTempMeta($tempPath);
         $originalName = $metadata['original_name'] ?? basename($tempPath);
-        
+
         $finalFileName = $this->generateFileName($originalName);
         $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
 
@@ -640,7 +636,7 @@ class FilexService
             ];
         }
 
-        return ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
+        return ['success' => false, 'tempPath' => $tempPath, 'message' => __('filex::translations.errors.file_validation_failed')];
     }
 
     /**
@@ -655,9 +651,9 @@ class FilexService
             }
 
             $tempDisk = $this->getTempDisk();
-            
+
             if (!$tempDisk->exists($tempPath)) {
-                return ['valid' => false, 'message' => 'File not found'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_not_found')];
             }
 
             $filePath = $tempDisk->path($tempPath);
@@ -673,30 +669,29 @@ class FilexService
             // 2. File signature validation (if enabled)
             if ($this->getCachedConfig('filex.security.suspicious_detection.validate_signatures', true)) {
                 if (!$this->validateFileSignature($filePath, $extension)) {
-                    return ['valid' => false, 'message' => 'File signature validation failed'];
+                    return ['valid' => false, 'message' => __('filex::translations.errors.file_signature_validation_failed')];
                 }
             }
 
             // 3. Content-based validation for specific file types
             if (!$this->validateFileContent($filePath, $extension)) {
-                return ['valid' => false, 'message' => 'File content validation failed'];
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_content_validation_failed')];
             }
 
             // 4. Security scanning (if enabled)
             if ($this->getCachedConfig('filex.security.suspicious_detection.scan_content', true)) {
                 if (!$this->scanForThreats($filePath, $originalName)) {
-                    return ['valid' => false, 'message' => 'Security scan failed'];
+                    return ['valid' => false, 'message' => __('filex::translations.errors.file_security_validation_failed')];
                 }
             }
 
-            return ['valid' => true, 'message' => 'File passed all security validations'];
-
+            return ['valid' => true, 'message' => __('filex::translations.validation')];
         } catch (\Exception $e) {
             Log::error('Enhanced file validation error: ' . $e->getMessage(), [
                 'temp_path' => $tempPath,
                 'original_name' => $originalName
             ]);
-            return ['valid' => false, 'message' => 'Validation failed due to an error'];
+            return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
     }
 
@@ -759,15 +754,15 @@ class FilexService
                 case 'gif':
                 case 'webp':
                     return $this->validateImageContent($filePath);
-                
+
                 case 'pdf':
                     return $this->validatePdfContent($filePath);
-                
+
                 case 'docx':
                 case 'xlsx':
                 case 'pptx':
                     return $this->validateOfficeContent($filePath);
-                
+
                 default:
                     return true; // No specific validation for this type
             }
@@ -826,7 +821,7 @@ class FilexService
 
         $zip = new \ZipArchive();
         $result = $zip->open($filePath, \ZipArchive::RDONLY);
-        
+
         if ($result !== true) {
             return false;
         }
@@ -834,9 +829,9 @@ class FilexService
         // Check for required OOXML structure
         $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
         $hasRels = $zip->locateName('_rels/.rels') !== false;
-        
+
         $zip->close();
-        
+
         return $hasContentTypes && $hasRels;
     }
 
@@ -947,9 +942,16 @@ class FilexService
         // Only scan text-based files to avoid false positives
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         $textExtensions = $this->getCachedConfig('filex.security.text_extensions_to_scan', [
-            'txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv'
+            'txt',
+            'html',
+            'htm',
+            'css',
+            'js',
+            'json',
+            'xml',
+            'csv'
         ]);
-        
+
         if (!in_array($extension, $textExtensions)) {
             return false; // Skip binary files
         }
@@ -962,7 +964,7 @@ class FilexService
 
         $content = fread($handle, 10240); // Read first 10KB
         fclose($handle);
-        
+
         if ($content === false) {
             return false;
         }
@@ -1011,15 +1013,15 @@ class FilexService
             $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
             $quarantineDir = $quarantineBaseDir . '/' . date('Y/m/d');
             $quarantineFile = $quarantineDir . '/' . basename($tempPath) . '_' . time();
-            
+
             // Create quarantine directory
             if (!$tempDisk->exists($quarantineDir)) {
                 $tempDisk->makeDirectory($quarantineDir);
             }
-            
+
             // Move file to quarantine
             $result = $tempDisk->move($tempPath, $quarantineFile);
-            
+
             if ($result) {
                 // Create quarantine metadata
                 $metadata = [
@@ -1029,16 +1031,16 @@ class FilexService
                     'user_id' => Auth::id(),
                     'ip_address' => request()->ip(),
                 ];
-                
+
                 $tempDisk->put($quarantineFile . '.meta', json_encode($metadata));
-                
+
                 Log::alert('File quarantined', [
                     'original_path' => $tempPath,
                     'quarantine_path' => $quarantineFile,
                     'reason' => $reason
                 ]);
             }
-            
+
             return $result;
         } catch (\Exception $e) {
             Log::error('Failed to quarantine file: ' . $e->getMessage(), [
@@ -1066,7 +1068,7 @@ class FilexService
         $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
         $retentionDays = $this->getCachedConfig('filex.security.quarantine.retention_days', 30);
         $autoCleanup = $this->getCachedConfig('filex.security.quarantine.auto_cleanup', true);
-        
+
         $cleaned = [];
         $errors = [];
 
@@ -1082,7 +1084,7 @@ class FilexService
         try {
             $quarantineFiles = $tempDisk->allFiles($quarantineBaseDir);
             $cutoffTime = now()->subDays($retentionDays);
-            
+
             foreach ($quarantineFiles as $file) {
                 // Skip metadata files, they'll be handled with their parent files
                 if (str_ends_with($file, '.meta')) {
@@ -1091,13 +1093,13 @@ class FilexService
 
                 try {
                     $metadataPath = $file . '.meta';
-                    
+
                     if ($tempDisk->exists($metadataPath)) {
                         $metadata = json_decode($tempDisk->get($metadataPath), true);
-                        
+
                         if (isset($metadata['quarantined_at'])) {
                             $quarantinedAt = Carbon::parse($metadata['quarantined_at']);
-                            
+
                             if ($quarantinedAt->lt($cutoffTime)) {
                                 // Delete both file and metadata
                                 if ($tempDisk->delete($file) && $tempDisk->delete($metadataPath)) {
@@ -1110,7 +1112,7 @@ class FilexService
                     } else {
                         // File without metadata, check file age
                         $fileTime = $tempDisk->lastModified($file);
-                        
+
                         if ($fileTime && $fileTime < $cutoffTime->timestamp) {
                             if ($tempDisk->delete($file)) {
                                 $cleaned[] = $file;
@@ -1133,7 +1135,6 @@ class FilexService
                     $tempDisk->deleteDirectory($dir);
                 }
             }
-
         } catch (\Exception $e) {
             Log::error('Quarantine cleanup error: ' . $e->getMessage());
             $errors[] = 'General cleanup error: ' . $e->getMessage();
@@ -1187,7 +1188,7 @@ class FilexService
         // Add routes configuration
         $uploadRoute = route('filex.upload.temp');
         $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
-        
+
         $output .= '<script>' . "\n";
         $output .= 'window.filexRoutes = {' . "\n";
         $output .= '    upload: "' . $uploadRoute . '",' . "\n";
@@ -1230,7 +1231,7 @@ class FilexService
         // Add routes configuration
         $uploadRoute = route('filex.upload.temp');
         $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
-        
+
         $output .= '<script>' . "\n";
         $output .= 'window.filexRoutes = {' . "\n";
         $output .= '    upload: "' . $uploadRoute . '",' . "\n";
@@ -1299,7 +1300,7 @@ class FilexService
     {
         PerformanceMonitor::startTimer('bulk_file_move');
         PerformanceMonitor::checkMemoryUsage('Before bulk file move');
-        
+
         $disk = $disk ?? $this->getCachedConfig('filex.default_disk', 'public');
         $batchSize = $this->getCachedConfig('filex.performance.batch_size', 5);
         $tempDisk = $this->getTempDisk();
@@ -1308,7 +1309,7 @@ class FilexService
 
         // Pre-validate all paths for better error handling
         $validPaths = $this->preValidatePaths($tempPaths, $tempDisk);
-        
+
         if (empty($validPaths)) {
             PerformanceMonitor::endTimer('bulk_file_move', ['result' => 'no_valid_paths']);
             return $results;
@@ -1322,7 +1323,7 @@ class FilexService
 
         // Process files in batches for better performance
         $batches = array_chunk($validPaths, $batchSize);
-        
+
         foreach ($batches as $batchIndex => $batch) {
             PerformanceMonitor::startTimer("batch_process_{$batchIndex}");
             $batchResults = $this->processMoveFileBatch($batch, $targetDirectory, $tempDisk, $targetDisk);
@@ -1343,35 +1344,35 @@ class FilexService
 
         return $results;
     }
-    
+
     /**
      * Pre-validate temp paths for bulk operations
      */
     private function preValidatePaths(array $tempPaths, $tempDisk): array
     {
         $validPaths = [];
-        
+
         foreach ($tempPaths as $tempPath) {
             if (str_starts_with($tempPath, 'temp/') && $tempDisk->exists($tempPath)) {
                 $validPaths[] = $tempPath;
             }
         }
-        
+
         return $validPaths;
     }
-    
+
     /**
      * Process a batch of file moves
      */
     private function processMoveFileBatch(array $batch, string $targetDirectory, $tempDisk, $targetDisk): array
     {
         $results = [];
-        
+
         foreach ($batch as $tempPath) {
             try {
                 $metadata = $this->getTempMeta($tempPath);
                 $originalName = $metadata['original_name'] ?? basename($tempPath);
-                
+
                 // Generate final filename
                 $finalFileName = $this->generateFileName($originalName);
                 $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
@@ -1382,7 +1383,7 @@ class FilexService
                 if ($moved) {
                     // Clean up temp file
                     $this->deleteTemp($tempPath);
-                    
+
                     $results[] = [
                         'success' => true,
                         'tempPath' => $tempPath,
@@ -1392,7 +1393,6 @@ class FilexService
                 } else {
                     $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
                 }
-
             } catch (\Exception $e) {
                 Log::error('Failed to move temp file in batch', [
                     'temp_path' => $tempPath,
@@ -1401,7 +1401,7 @@ class FilexService
                 $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => $e->getMessage()];
             }
         }
-        
+
         return $results;
     }
 }

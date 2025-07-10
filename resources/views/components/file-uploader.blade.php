@@ -1,29 +1,6 @@
 {{--
     Laravel Filex - Modern File Upload Component
-
-    A powerful and flexible file upload component built on Dropzone.js
-    that provides drag-and-drop uploads, progress tracking, chunked uploads,
-    temporary file handling, and comprehensive error handling for Laravel applications.
-
-    Basic Usage: 
-    <x-filex-uploader name="files" :multiple="true" />
-
-    Advanced Usage with Error Handling:
-    <x-filex-uploader 
-        name="documents" 
-        :multiple="true" 
-        :maxFiles="5"
-        :maxSize="10"
-        accept=".pdf,.doc,.docx"
-        :showErrorNotifications="true"
-        :showSuccessMessages="true"
-        :errorTimeout="5000"
-        :successTimeout="3000"
-        label="Upload Documents"
-        helpText="Upload up to 5 PDF or Word documents (max 10MB each)"
-        :required="true" />
-
-    Documentation: https://github.com/devwizardhq/laravel-filex
+    This Blade view uses localization keys from resources/lang/{lang}/filex.php
 --}}
 
 @props([
@@ -193,11 +170,12 @@
 
     // Get localized messages
     $defaultMessages = [
-        'dictDefaultMessage' => $placeholder ?? __('Drop files here or click to upload'),
-        'dictFileTooBig' => $dictFileTooBig ?? __('File is too big (:filesize MB). Max filesize: :maxFilesize MB.'),
-        'dictInvalidFileType' => $dictInvalidFileType ?? __('You cannot upload files of this type.'),
-        'dictResponseError' => $dictResponseError ?? __('Server responded with :statusCode code.'),
-        'dictMaxFilesExceeded' => $dictMaxFilesExceeded ?? __('You cannot upload any more files.'),
+        'dictDefaultMessage' => $placeholder ?? __('filex::translations.drop_files'),
+        'dictFileTooBig' => $dictFileTooBig ?? __('filex::translations.file_too_big'),
+        'dictInvalidFileType' => $dictInvalidFileType ?? __('filex::translations.invalid_file_type'),
+        'dictResponseError' =>
+            $dictResponseError ?? __('filex::translations.server_responded', ['statusCode' => ':statusCode']),
+        'dictMaxFilesExceeded' => $dictMaxFilesExceeded ?? __('filex::translations.max_files_exceeded'),
         'dictRemoveFile' => $dictRemoveFile ?? '',
     ];
 
@@ -276,19 +254,23 @@
             <div class="uploader-text">
                 <h5 class="mb-2">{{ $allMessages['dictDefaultMessage'] }}</h5>
                 @if ($accept)
-                    <small class="text-muted">Accepted files: {{ $accept }}</small><br>
+                    <small class="text-muted">{{ __('filex::translations.accepted_files') }}:
+                        {{ $accept }}</small><br>
                 @endif
                 @if ($maxSize)
-                    <small class="text-muted">Max file size: {{ $maxSize }}MB</small><br>
+                    <small class="text-muted">{{ __('filex::translations.max_file_size') }}:
+                        {{ $maxSize }}MB</small><br>
                 @endif
                 @if ($minSize)
-                    <small class="text-muted">Min file size: {{ $minSize }}MB</small><br>
+                    <small class="text-muted">{{ __('filex::translations.min_file_size') }}:
+                        {{ $minSize }}MB</small><br>
                 @endif
                 @if ($maxFiles)
-                    <small class="text-muted">Max files: {{ $maxFiles }}</small>
+                    <small class="text-muted">{{ __('filex::translations.max_files') }}: {{ $maxFiles }}</small>
                 @endif
                 @if (!empty($frontendValidation['rules']) && $clientValidation)
-                    <small class="text-muted">Validation: {{ implode(', ', $frontendValidation['rules']) }}</small>
+                    <small class="text-muted">{{ __('filex::translations.validation') }}:
+                        {{ implode(', ', $frontendValidation['rules']) }}</small>
                 @endif
             </div>
         </div>
@@ -316,13 +298,13 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"
                     class="spinning-icon">
                     <path fill="currentColor" d="M12,4V2A10,10 0 0,0 2,12H4A8,8 0 0,1 12,4Z" />
-                </svg> Uploading files...
+                </svg> {{ __('filex::translations.uploading_files') }}
             </span>
             <span class="completed-text text-success" style="display: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
                     <path fill="currentColor"
                         d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z" />
-                </svg> All files uploaded successfully
+                </svg> {{ __('filex::translations.all_files_uploaded') }}
             </span>
             <span class="error-text text-danger" style="display: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
@@ -342,7 +324,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
                     <path fill="currentColor"
                         d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" />
-                </svg> Retry Failed Uploads
+                </svg> {{ __('filex::translations.retry_failed_uploads') }}
             </button>
         </div>
     @endif

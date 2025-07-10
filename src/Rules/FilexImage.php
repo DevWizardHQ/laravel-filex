@@ -8,7 +8,7 @@ use Closure;
 
 /**
  * Filex image validation rule
- * 
+ *
  * Usage: 'filex:image'
  */
 class FilexImage implements ValidationRule
@@ -23,22 +23,22 @@ class FilexImage implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('The :attribute must be a valid Filex temp file.');
+            $fail(__('filex::validation.temp_file'));
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
         if (!$tempDisk->exists($value)) {
-            $fail('The :attribute file not found.');
+            $fail(__('filex::validation.file_not_found'));
             return;
         }
 
         $filePath = $tempDisk->path($value);
-        
+
         // Check if it's an image using getimagesize
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo === false) {
-            $fail('The :attribute must be an image.');
+            $fail(__('filex::validation.must_be_image'));
             return;
         }
 
@@ -55,7 +55,7 @@ class FilexImage implements ValidationRule
 
         $realMimeType = $this->detectRealMimeType($filePath);
         if (!in_array($realMimeType, $allowedMimes)) {
-            $fail('The :attribute must be an image.');
+            $fail(__('filex::validation.must_be_image'));
         }
     }
 

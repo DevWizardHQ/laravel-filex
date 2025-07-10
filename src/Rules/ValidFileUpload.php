@@ -9,10 +9,10 @@ use Closure;
 
 /**
  * Comprehensive file validation rule for Laravel Filex
- * 
+ *
  * This rule provides multi-layered validation to prevent security vulnerabilities:
  * 1. Extension validation (can be spoofed)
- * 2. MIME type validation (can be spoofed) 
+ * 2. MIME type validation (can be spoofed)
  * 3. File signature/magic bytes validation (most secure)
  * 4. Content analysis for additional security
  */
@@ -23,12 +23,12 @@ class ValidFileUpload implements ValidationRule
     protected $maxFileSize;
     protected $strict;
     protected $filexService;
-    
+
     /**
      * Static cache for validation results to improve performance
      */
     private static array $validationCache = [];
-    
+
     /**
      * Static cache for file signatures
      */
@@ -54,13 +54,13 @@ class ValidFileUpload implements ValidationRule
     {
         // Check if value is a temp file path
         if (!is_string($value) || !str_starts_with($value, 'temp/')) {
-            $fail('Invalid file reference.');
+            $fail(__('filex::validation.invalid_upload'));
             return;
         }
 
         // Create cache key for this validation
         $cacheKey = md5($value . serialize($this->allowedExtensions) . serialize($this->allowedMimeTypes) . $this->maxFileSize);
-        
+
         // Check cache first for performance
         if (isset(self::$validationCache[$cacheKey])) {
             $cached = self::$validationCache[$cacheKey];
@@ -73,7 +73,7 @@ class ValidFileUpload implements ValidationRule
         // Get file metadata
         $metadata = $this->filexService->getTempMeta($value);
         if (!$metadata) {
-            $error = 'File not found or expired.';
+            $error = __('filex::validation.file_not_found_or_expired');
             self::$validationCache[$cacheKey] = ['valid' => false, 'message' => $error];
             $fail($error);
             return;
@@ -81,9 +81,9 @@ class ValidFileUpload implements ValidationRule
 
         $originalName = $metadata['original_name'] ?? 'unknown';
         $tempDisk = $this->filexService->getTempDisk();
-        
+
         if (!$tempDisk->exists($value)) {
-            $error = 'File not found.';
+            $error = __('filex::validation.file_not_found');
             self::$validationCache[$cacheKey] = ['valid' => false, 'message' => $error];
             $fail($error);
             return;
@@ -94,35 +94,35 @@ class ValidFileUpload implements ValidationRule
 
         // 1. File size validation
         if ($fileSize > $this->maxFileSize) {
-            $fail('File size exceeds maximum allowed size.');
+            $fail(__('filex::validation.file_too_large', ['max' => $this->formatFileSize($this->maxFileSize)]));
             return;
         }
 
         // 2. Extension validation (basic layer)
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         if (!in_array($extension, $this->allowedExtensions)) {
-            $fail('File type not allowed.');
+            $fail(__('filex::validation.invalid_mime_type', ['values' => implode(', ', $this->allowedExtensions)]));
             return;
         }
 
         // 3. MIME type validation (can be spoofed)
         $declaredMimeType = $metadata['mime_type'] ?? null;
         if ($declaredMimeType && !in_array($declaredMimeType, $this->allowedMimeTypes)) {
-            $fail('File MIME type not allowed.');
+            $fail(__('filex::validation.invalid_mimetypes', ['values' => implode(', ', $this->allowedMimeTypes)]));
             return;
         }
 
         // 4. Real MIME type detection using finfo (more secure)
         $realMimeType = $this->detectRealMimeType($filePath);
         if (!in_array($realMimeType, $this->allowedMimeTypes)) {
-            $fail('File content does not match expected type.');
+            $fail(__('filex::translations.errors.file_content_mismatch'));
             return;
         }
 
         // 5. File signature validation (most secure)
         if ($this->strict) {
             if (!$this->validateFileSignature($filePath, $extension)) {
-                $fail('File signature validation failed. File may be corrupted or malicious.');
+                $fail(__('filex::translations.errors.file_signature_validation_failed'));
                 return;
             }
         }
@@ -134,10 +134,10 @@ class ValidFileUpload implements ValidationRule
             $fail($error);
             return;
         }
-        
+
         // Cache successful validation result
         self::$validationCache[$cacheKey] = ['valid' => true, 'message' => null];
-        
+
         // Limit cache size to prevent memory issues
         if (count(self::$validationCache) > 100) {
             self::$validationCache = array_slice(self::$validationCache, -50, null, true);
@@ -150,7 +150,7 @@ class ValidFileUpload implements ValidationRule
     protected function detectRealMimeType(string $filePath): string
     {
         static $finfo = null;
-        
+
         if (!file_exists($filePath)) {
             return 'application/octet-stream';
         }
@@ -170,7 +170,7 @@ class ValidFileUpload implements ValidationRule
     protected function validateFileSignature(string $filePath, string $extension): bool
     {
         static $signatures = null;
-        
+
         if (!is_readable($filePath)) {
             return false;
         }
@@ -192,7 +192,9 @@ class ValidFileUpload implements ValidationRule
                 'bmp' => ["BM"],
                 'ico' => ["\x00\x00\x01\x00"],
                 'pdf' => ["%PDF-"],
-                'docx' => ["PK\x03\x04"], 'xlsx' => ["PK\x03\x04"], 'pptx' => ["PK\x03\x04"],
+                'docx' => ["PK\x03\x04"],
+                'xlsx' => ["PK\x03\x04"],
+                'pptx' => ["PK\x03\x04"],
                 'doc' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
                 'xls' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
                 'rtf' => ["{\\rtf"],
@@ -203,7 +205,8 @@ class ValidFileUpload implements ValidationRule
                 'gz' => ["\x1F\x8B"],
                 'mp3' => ["ID3", "\xFF\xFB", "\xFF\xF3", "\xFF\xF2"],
                 'wav' => ["RIFF", "WAVE"],
-                'flac' => ["fLaC"], 'ogg' => ["OggS"],
+                'flac' => ["fLaC"],
+                'ogg' => ["OggS"],
                 'mp4' => ["\x00\x00\x00\x18ftypmp4", "\x00\x00\x00\x20ftypmp4"],
                 'avi' => ["RIFF", "AVI "],
                 'mov' => ["\x00\x00\x00\x14ftypqt"],
@@ -225,15 +228,15 @@ class ValidFileUpload implements ValidationRule
         }
 
         $result = $this->checkFileSignature($header, $extension);
-        
+
         // Cache the result
         self::$signatureCache[$fileHash] = $result;
-        
+
         // Limit cache size
         if (count(self::$signatureCache) > 50) {
             self::$signatureCache = array_slice(self::$signatureCache, -25, null, true);
         }
-        
+
         return $result;
     }
 
@@ -243,7 +246,7 @@ class ValidFileUpload implements ValidationRule
     protected function checkFileSignature(string $header, string $extension): bool
     {
         static $signatures = null;
-        
+
         if ($signatures === null) {
             $signatures = [
                 'jpg' => ["\xFF\xD8\xFF", "\xFF\xD8\xFF\xE0", "\xFF\xD8\xFF\xE1"],
@@ -254,7 +257,9 @@ class ValidFileUpload implements ValidationRule
                 'bmp' => ["BM"],
                 'ico' => ["\x00\x00\x01\x00"],
                 'pdf' => ["%PDF-"],
-                'docx' => ["PK\x03\x04"], 'xlsx' => ["PK\x03\x04"], 'pptx' => ["PK\x03\x04"],
+                'docx' => ["PK\x03\x04"],
+                'xlsx' => ["PK\x03\x04"],
+                'pptx' => ["PK\x03\x04"],
                 'doc' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
                 'xls' => ["\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1"],
                 'rtf' => ["{\\rtf"],
@@ -265,7 +270,8 @@ class ValidFileUpload implements ValidationRule
                 'gz' => ["\x1F\x8B"],
                 'mp3' => ["ID3", "\xFF\xFB", "\xFF\xF3", "\xFF\xF2"],
                 'wav' => ["RIFF", "WAVE"],
-                'flac' => ["fLaC"], 'ogg' => ["OggS"],
+                'flac' => ["fLaC"],
+                'ogg' => ["OggS"],
                 'mp4' => ["\x00\x00\x00\x18ftypmp4", "\x00\x00\x00\x20ftypmp4"],
                 'avi' => ["RIFF", "AVI "],
                 'mov' => ["\x00\x00\x00\x14ftypqt"],
@@ -443,7 +449,7 @@ class ValidFileUpload implements ValidationRule
 
             $zip = new \ZipArchive();
             $result = $zip->open($filePath, \ZipArchive::RDONLY);
-            
+
             if ($result !== true) {
                 return false;
             }
@@ -451,9 +457,9 @@ class ValidFileUpload implements ValidationRule
             // Check for required Office document structure
             $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
             $hasRels = $zip->locateName('_rels/.rels') !== false;
-            
+
             $zip->close();
-            
+
             return $hasContentTypes && $hasRels;
         } catch (\Exception $e) {
             return false;
@@ -507,5 +513,17 @@ class ValidFileUpload implements ValidationRule
             $maxSizeMB * 1024 * 1024,
             true
         );
+    }
+
+    /**
+     * Format file size in human readable format
+     */
+    protected function formatFileSize(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
+            $bytes /= 1024;
+        }
+        return round($bytes, 2) . ' ' . $units[$i];
     }
 }

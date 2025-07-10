@@ -341,10 +341,10 @@ Laravel Filex includes comprehensive security features to protect your applicati
 
 The package automatically scans uploaded files for potential threats:
 
-- **File signature validation**: Verifies file headers match declared extensions
-- **Content analysis**: Scans text files for suspicious patterns (PHP code, scripts, etc.)
-- **Filename validation**: Detects suspicious filenames and path traversal attempts
-- **Executable detection**: Identifies and blocks executable files
+-   **File signature validation**: Verifies file headers match declared extensions
+-   **Content analysis**: Scans text files for suspicious patterns (PHP code, scripts, etc.)
+-   **Filename validation**: Detects suspicious filenames and path traversal attempts
+-   **Executable detection**: Identifies and blocks executable files
 
 ### Configuration
 
@@ -416,3 +416,114 @@ Please review [our security policy](../../security/policy) on how to report secu
 ## License
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+## Localization
+
+Laravel Filex provides comprehensive localization support with built-in translations for multiple languages.
+
+### Publishing Language Files
+
+To customize the language files, publish them to your application:
+
+```bash
+php artisan vendor:publish --provider="DevWizard\Filex\FilexServiceProvider" --tag="filex-lang"
+```
+
+This will publish the language files to `resources/lang/vendor/filex/`.
+
+### Supported Languages
+
+-   🇺🇸 **English** (en) - Default
+-   🇧🇩 **Bengali** (bn) - Complete
+-   🇪🇸 **Spanish** (es) - Coming soon
+-   🇫🇷 **French** (fr) - Coming soon
+-   🇩🇪 **German** (de) - Coming soon
+-   🇨🇳 **Chinese** (zh) - Coming soon
+-   🇸🇦 **Arabic** (ar) - Coming soon
+-   🇷🇺 **Russian** (ru) - Coming soon
+-   🇮🇳 **Hindi** (hi) - Coming soon
+-   🇧🇷 **Portuguese** (pt) - Coming soon
+-   🇯🇵 **Japanese** (ja) - Coming soon
+-   🇮🇹 **Italian** (it) - Coming soon
+-   🇹🇷 **Turkish** (tr) - Coming soon
+
+### Customizing Messages
+
+After publishing, you can customize any message in the language files:
+
+```php
+// resources/lang/vendor/filex/en/translations.php - UI and general messages
+return [
+    'ui' => [
+        'drop_files' => 'Drop your files here or click to browse',
+        'file_too_big' => 'File is too large (:filesize MB). Maximum size: :maxFilesize MB.',
+        'invalid_file_type' => 'This file type is not allowed.',
+        // ... more UI messages
+    ],
+    'errors' => [
+        'file_not_found' => 'File not found',
+        'validation_failed' => 'File validation failed',
+        // ... more error messages
+    ],
+];
+
+// resources/lang/vendor/filex/en/validation.php - Validation rule messages
+return [
+    'filex_mimes' => 'The :attribute must be a file of type: :values.',
+    'filex_max' => 'The :attribute may not be greater than :max kilobytes.',
+    'filex_min' => 'The :attribute must be at least :min kilobytes.',
+    'filex_image' => 'The :attribute must be an image.',
+    // ... more validation messages
+];
+```
+
+### Creating New Language Files
+
+To add support for a new language:
+
+1. Create a new language directory: `resources/lang/vendor/filex/[locale]/`
+2. Copy the English language files: 
+   ```bash
+   cp resources/lang/vendor/filex/en/translations.php resources/lang/vendor/filex/[locale]/translations.php
+   cp resources/lang/vendor/filex/en/validation.php resources/lang/vendor/filex/[locale]/validation.php
+   ```
+3. Translate all the messages in both files
+4. Set your application locale in `config/app.php` or dynamically
+
+### Language Keys Reference
+
+The language files contain the following key groups:
+
+-   **`translations.php`** - UI messages, upload error messages, help text, and general error messages
+-   **`validation.php`** - Validation rule messages for all Filex validation rules (filex_mimes, filex_max, etc.)
+
+### Dynamic Language Switching
+
+You can switch languages dynamically in your application:
+
+```php
+// In your controller or middleware
+App::setLocale('bn'); // Switch to Bengali
+
+// Or use helper
+app()->setLocale('bn');
+```
+
+### Usage with Blade Components
+
+The file upload component automatically uses the correct language based on your application's locale:
+
+```blade
+{{-- Messages will be displayed in the current locale --}}
+<x-filex-uploader name="files" />
+```
+
+### Contributing Translations
+
+We welcome contributions for new languages! To contribute:
+
+1. Fork the repository
+2. Create a new language file based on the English version
+3. Translate all messages while keeping the same structure
+4. Test the translations in your application
+5. Submit a pull request
