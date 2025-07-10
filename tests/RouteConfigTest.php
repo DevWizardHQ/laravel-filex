@@ -3,11 +3,11 @@
 namespace DevWizard\Filex\Tests;
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Config;
+use PHPUnit\Framework\Attributes\Test;
 
 class RouteConfigTest extends TestCase
 {
-    /** @test */
+    #[Test]
     public function it_uses_default_route_configuration()
     {
         // Test that routes use default configuration
@@ -16,7 +16,7 @@ class RouteConfigTest extends TestCase
         $this->assertStringContainsString('filex/upload-temp', $route->uri());
     }
 
-    /** @test */
+    #[Test]
     public function it_can_generate_urls_with_configured_prefix()
     {
         // Test URL generation with default prefix
@@ -30,7 +30,7 @@ class RouteConfigTest extends TestCase
         $this->assertStringContainsString('/filex/temp/test.txt/info', $infoUrl);
     }
 
-    /** @test */
+    #[Test]
     public function it_respects_route_name_configuration()
     {
         // All routes should start with the configured name prefix
@@ -46,7 +46,7 @@ class RouteConfigTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function it_can_access_route_configuration()
     {
         $routeConfig = config('filex.routes');
