@@ -18,8 +18,15 @@ class FilexCommandTest extends TestCase
         $this->artisan('filex:info')
             ->expectsOutput('🚀 Laravel Filex - Modern File Upload Component')
             ->expectsOutput('Available commands:')
-            ->expectsOutput('  filex:cleanup-temp    Clean up expired temporary files')
-            ->expectsOutput('  filex:info           Show this information')
+            ->expectsTable(
+                ['Command', 'Description'],
+                [
+                    ['filex:cleanup-temp', 'Clean up expired temporary files'],
+                    ['filex:info', 'Show this information'],
+                    ['filex:install', 'Install Laravel Filex and publish config'],
+                    ['filex:optimize', 'Optimize Filex performance'],
+                ]
+            )
             ->expectsOutput('Usage:')
             ->expectsOutput('  <x-filex-uploader name="files" :multiple="true" />')
             ->assertSuccessful();
