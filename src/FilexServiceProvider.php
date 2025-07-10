@@ -87,6 +87,10 @@ class FilexServiceProvider extends PackageServiceProvider
         // Publishing setup (console only)
         if ($this->app->runningInConsole()) {
             $this->setupPublishing();
+
+            // Auto-publish assets and config if they don't exist
+            // This must be called after setupPublishing() to ensure tags are registered
+            $this->autoPublishAssets();
         }
     }
 
@@ -116,9 +120,6 @@ class FilexServiceProvider extends PackageServiceProvider
                 }
             });
         }
-
-        // Auto-publish assets and config if they don't exist
-        $this->autoPublishAssets();
     }
 
     /**
@@ -327,7 +328,7 @@ class FilexServiceProvider extends PackageServiceProvider
     protected function getValidationMessage(string $key): string
     {
         $message = trans("filex::validation.{$key}");
-        
+
         // If the translation key is not found (returns the key itself), use a default message
         if ($message === "filex::validation.{$key}") {
             $defaults = [
@@ -365,10 +366,10 @@ class FilexServiceProvider extends PackageServiceProvider
                 'file_validation_failed' => 'The :attribute file validation failed.',
                 'invalid_file_path' => 'Invalid file path for :attribute. File deletion not allowed.',
             ];
-            
+
             return $defaults[$key] ?? "The :attribute field is invalid.";
         }
-        
+
         return $message;
     }
 
