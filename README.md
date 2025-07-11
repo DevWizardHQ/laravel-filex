@@ -30,7 +30,7 @@
 ## 📋 Requirements
 
 -   PHP 8.1+
--   Laravel 10.x, 11.x, or 12.x
+-   Laravel 11.x, or 12.x
 -   Minimum 256MB memory (recommended 512MB or higher for large files)
 -   File system write permissions for temporary storage
 -   Modern web browser with JavaScript support
