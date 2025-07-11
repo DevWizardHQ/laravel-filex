@@ -2,11 +2,12 @@
 
 namespace DevWizard\Filex\Tests\Unit\Traits;
 
+use DevWizard\Filex\Facades\Filex;
+use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Tests\TestCase;
 use DevWizard\Filex\Traits\HasFilex;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Mockery;
 
 class HasFilexTest extends TestCase
@@ -26,220 +27,159 @@ class HasFilexTest extends TestCase
             use HasFilex;
 
             // Expose protected methods for testing
-            public function getFilexServicePublic()
+            public function moveFilePublic($request, $fieldName, $directory, $disk = null)
             {
-                return $this->getFilexService();
+                return $this->moveFile($request, $fieldName, $directory, $disk);
             }
 
-            public function processFilesPublic($request, $fieldName, $targetDir, $disk = null, $required = false)
+            public function moveFilesPublic($request, $fieldName, $directory, $disk = null)
             {
-                return $this->processFiles($request, $fieldName, $targetDir, $disk, $required);
+                return $this->moveFiles($request, $fieldName, $directory, $disk);
             }
 
-            public function processSingleFilePublic($request, $fieldName, $targetDir, $disk = null, $required = false)
+            public function getFileValidationRulesPublic($fieldName, $required = false)
             {
-                return $this->processSingleFile($request, $fieldName, $targetDir, $disk, $required);
+                return $this->getFileValidationRules($fieldName, $required);
             }
 
-            public function validateFilesPublic($tempPaths)
+            public function getFilesValidationRulesPublic($fieldName, $required = false)
             {
-                return $this->validateFiles($tempPaths);
+                return $this->getFilesValidationRules($fieldName, $required);
+            }
+
+            public function cleanupTempFilesPublic($tempPaths)
+            {
+                return $this->cleanupTempFiles($tempPaths);
             }
         };
-
-        // Create a real FilexService instance for the trait
-        $this->app->singleton(FilexService::class, function () {
-            return $this->createPartialMock(FilexService::class, [
-                'getTempMeta',
-                'validateTemp',
-                'moveFilesBulk',
-            ]);
-        });
     }
 
-    public function test_get_filex_service_returns_service_instance()
+    public function test_move_file_returns_null_when_no_input()
     {
-        $service = $this->testClass->getFilexServicePublic();
-        expect($service)->toBeInstanceOf(FilexService::class);
+        $request = new Request();
+
+        $result = $this->testClass->moveFilePublic($request, 'avatar', 'avatars');
+
+        expect($result)->toBeNull();
     }
 
-    public function test_validate_files_returns_valid_results()
+    public function test_move_file_returns_file_path_when_successful()
     {
-        $mockFilexService = $this->mock(FilexService::class);
+        // Mock the Filex facade
+        $mockResult = $this->mock(FilexResult::class);
+        $mockResult->shouldReceive('getPath')->once()->andReturn('avatars/uploaded-file.jpg');
 
-        // Setup the mock service to validate two files - one valid, one invalid
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->with('temp/valid-file.jpg')
-            ->andReturn(['original_name' => 'valid-file.jpg']);
+        Filex::shouldReceive('moveFile')
+            ->once()
+            ->with('temp/test-file.jpg', 'avatars', null)
+            ->andReturn($mockResult);
 
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->with('temp/invalid-file.jpg')
-            ->andReturn(null);
+        $request = new Request();
+        $request->merge(['avatar' => 'temp/test-file.jpg']);
 
-        $results = $this->testClass->validateFilesPublic([
-            'temp/valid-file.jpg',
-            'temp/invalid-file.jpg',
-        ]);
+        $result = $this->testClass->moveFilePublic($request, 'avatar', 'avatars');
 
-        expect($results)->toBeArray();
-        expect($results['valid'])->toContain('temp/valid-file.jpg');
-        expect($results['invalid'])->toContain('temp/invalid-file.jpg');
-        expect($results['total'])->toBe(2);
-        expect($results['valid_count'])->toBe(1);
-        expect($results['invalid_count'])->toBe(1);
+        expect($result)->toBe('avatars/uploaded-file.jpg');
     }
 
-    public function test_process_files_handles_empty_input()
+    public function test_move_files_returns_empty_array_when_no_input()
     {
-        $request = new Request;
-        $request->merge(['files' => []]);
+        $request = new Request();
 
-        $result = $this->testClass->processFilesPublic($request, 'files', 'uploads');
+        $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
+
         expect($result)->toBeArray();
         expect($result)->toBeEmpty();
     }
 
-    public function test_process_files_handles_single_file()
+    public function test_move_files_returns_empty_array_when_input_not_array()
     {
-        $mockFilexService = $this->mock(FilexService::class);
+        $request = new Request();
+        $request->merge(['documents' => 'not-an-array']);
 
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->andReturn(['original_name' => 'test.jpg']);
+        $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
 
-        $mockFilexService->shouldReceive('validateTemp')
-            ->andReturn(['valid' => true, 'message' => 'Valid file']);
-
-        $mockFilexService->shouldReceive('moveFilesBulk')
-            ->once()
-            ->andReturn([
-                [
-                    'success' => true,
-                    'tempPath' => 'temp/file1.jpg',
-                    'finalPath' => 'uploads/file1_123456.jpg',
-                ],
-            ]);
-
-        $request = new Request;
-        $request->merge(['file' => 'temp/file1.jpg']);
-
-        $result = $this->testClass->processFilesPublic($request, 'file', 'uploads');
         expect($result)->toBeArray();
-        expect($result)->toHaveCount(1);
-        expect($result[0])->toBe('uploads/file1_123456.jpg');
+        expect($result)->toBeEmpty();
     }
 
-    public function test_process_files_handles_multiple_files()
+    public function test_move_files_returns_file_paths_when_successful()
     {
-        $mockFilexService = $this->mock(FilexService::class);
-
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->andReturn(['original_name' => 'test.jpg']);
-
-        $mockFilexService->shouldReceive('validateTemp')
-            ->andReturn(['valid' => true, 'message' => 'Valid file']);
-
-        $mockFilexService->shouldReceive('moveFilesBulk')
+        // Mock the Filex facade
+        $mockResult = $this->mock(FilexResult::class);
+        $mockResult->shouldReceive('getPaths')
             ->once()
-            ->andReturn([
-                [
-                    'success' => true,
-                    'tempPath' => 'temp/file1.jpg',
-                    'finalPath' => 'uploads/file1_123456.jpg',
-                ],
-                [
-                    'success' => true,
-                    'tempPath' => 'temp/file2.jpg',
-                    'finalPath' => 'uploads/file2_123456.jpg',
-                ],
-            ]);
+            ->andReturn(['uploads/file1.jpg', 'uploads/file2.pdf']);
 
-        $request = new Request;
-        $request->merge(['files' => ['temp/file1.jpg', 'temp/file2.jpg']]);
+        Filex::shouldReceive('moveFiles')
+            ->once()
+            ->with(['temp/file1.jpg', 'temp/file2.pdf'], 'uploads', null)
+            ->andReturn($mockResult);
 
-        $result = $this->testClass->processFilesPublic($request, 'files', 'uploads');
-        expect($result)->toBeArray();
-        expect($result)->toHaveCount(2);
-        expect($result)->toContain('uploads/file1_123456.jpg');
-        expect($result)->toContain('uploads/file2_123456.jpg');
+        $request = new Request();
+        $request->merge(['documents' => ['temp/file1.jpg', 'temp/file2.pdf']]);
+
+        $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
+
+        expect($result)->toBe(['uploads/file1.jpg', 'uploads/file2.pdf']);
     }
 
-    public function test_process_single_file_returns_first_path()
+    public function test_get_file_validation_rules_returns_nullable_rules_by_default()
     {
-        $mockFilexService = $this->mock(FilexService::class);
+        $rules = $this->testClass->getFileValidationRulesPublic('avatar');
 
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->andReturn(['original_name' => 'test.jpg']);
-
-        $mockFilexService->shouldReceive('validateTemp')
-            ->andReturn(['valid' => true, 'message' => 'Valid file']);
-
-        $mockFilexService->shouldReceive('moveFilesBulk')
-            ->once()
-            ->andReturn([
-                [
-                    'success' => true,
-                    'tempPath' => 'temp/file1.jpg',
-                    'finalPath' => 'uploads/file1_123456.jpg',
-                ],
-            ]);
-
-        $request = new Request;
-        $request->merge(['avatar' => 'temp/file1.jpg']);
-
-        $result = $this->testClass->processSingleFilePublic($request, 'avatar', 'uploads');
-        expect($result)->toBeString();
-        expect($result)->toBe('uploads/file1_123456.jpg');
+        expect($rules)->toBe([
+            'avatar' => ['nullable', 'string', 'starts_with:temp/']
+        ]);
     }
 
-    public function test_process_single_file_returns_null_when_empty()
+    public function test_get_file_validation_rules_returns_required_rules_when_specified()
     {
-        $request = new Request;
-        $request->merge(['avatar' => '']);
+        $rules = $this->testClass->getFileValidationRulesPublic('avatar', true);
 
-        $result = $this->testClass->processSingleFilePublic($request, 'avatar', 'uploads');
-        expect($result)->toBeNull();
+        expect($rules)->toBe([
+            'avatar' => ['required', 'string', 'starts_with:temp/']
+        ]);
     }
 
-    public function test_process_files_logs_failures()
+    public function test_get_files_validation_rules_returns_nullable_rules_by_default()
     {
-        $mockFilexService = $this->mock(FilexService::class);
+        $rules = $this->testClass->getFilesValidationRulesPublic('documents');
 
-        $mockFilexService->shouldReceive('getTempMeta')
-            ->andReturn(['original_name' => 'test.jpg']);
+        expect($rules)->toBe([
+            'documents' => ['nullable', 'array'],
+            'documents.*' => ['string', 'starts_with:temp/']
+        ]);
+    }
 
-        $mockFilexService->shouldReceive('validateTemp')
-            ->andReturn(['valid' => true, 'message' => 'Valid file']);
+    public function test_get_files_validation_rules_returns_required_rules_when_specified()
+    {
+        $rules = $this->testClass->getFilesValidationRulesPublic('documents', true);
 
-        $mockFilexService->shouldReceive('moveFilesBulk')
+        expect($rules)->toBe([
+            'documents' => ['required', 'array'],
+            'documents.*' => ['string', 'starts_with:temp/']
+        ]);
+    }
+
+    public function test_cleanup_temp_files_returns_count_of_cleaned_files()
+    {
+        // Mock the Filex service
+        $mockService = $this->mock(FilexService::class);
+        $mockService->shouldReceive('deleteTemp')
+            ->with('temp/file1.jpg')
             ->once()
-            ->andReturn([
-                [
-                    'success' => true,
-                    'tempPath' => 'temp/file1.jpg',
-                    'finalPath' => 'uploads/file1_123456.jpg',
-                ],
-                [
-                    'success' => false,
-                    'tempPath' => 'temp/file2.jpg',
-                    'message' => 'Failed to move file',
-                ],
-            ]);
-
-        Log::shouldReceive('warning')
+            ->andReturn(true);
+        $mockService->shouldReceive('deleteTemp')
+            ->with('temp/file2.pdf')
             ->once()
-            ->withArgs(function ($message, $context) {
-                return $message === 'Some files failed to process' &&
-                       $context['field'] === 'files' &&
-                       is_array($context['failures']);
-            });
+            ->andReturn(false);
 
-        $request = new Request;
-        $request->merge(['files' => ['temp/file1.jpg', 'temp/file2.jpg']]);
+        Filex::shouldReceive('service')->twice()->andReturn($mockService);
 
-        $result = $this->testClass->processFilesPublic($request, 'files', 'uploads');
-        expect($result)->toBeArray();
-        expect($result)->toHaveCount(1);
-        expect($result[0])->toBe('uploads/file1_123456.jpg');
+        $result = $this->testClass->cleanupTempFilesPublic(['temp/file1.jpg', 'temp/file2.pdf']);
+
+        expect($result)->toBe(1); // Only one file was successfully cleaned
     }
 
     protected function tearDown(): void
