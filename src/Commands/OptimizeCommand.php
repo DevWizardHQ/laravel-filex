@@ -4,11 +4,12 @@ namespace DevWizard\Filex\Commands;
 
 use DevWizard\Filex\Services\PerformanceMonitor;
 use DevWizard\Filex\Services\FilexCacheService;
+use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Console\Command;
 
 class OptimizeCommand extends Command
 {
-    protected $signature = 'filex:optimize 
+    protected $signature = 'filex:optimize
                            {--clear-cache : Clear all Filex cache}
                            {--analyze : Analyze performance metrics}
                            {--config-check : Check configuration for optimization}';
@@ -41,14 +42,14 @@ class OptimizeCommand extends Command
     private function clearCache(): void
     {
         $this->info('🗑️  Clearing Filex cache...');
-        
+
         if ($this->callFilexCacheFlush()) {
             $this->info('✅ Cache cleared successfully');
         } else {
             $this->error('❌ Failed to clear cache');
         }
     }
-    
+
     /**
      * Wrapper method for FilexCacheService::flush to make testing easier
      */
@@ -60,9 +61,9 @@ class OptimizeCommand extends Command
     private function analyzePerformance(): void
     {
         $this->info('📊 Analyzing performance metrics...');
-        
+
         $metrics = $this->callGetAggregatedMetrics();
-        
+
         if (empty($metrics)) {
             $this->warn('⚠️  No performance metrics found');
             $this->line('Enable metrics in config: filex.monitoring.enable_metrics');
@@ -86,7 +87,7 @@ class OptimizeCommand extends Command
         foreach ($metrics as $operation => $data) {
             if (!empty($data['memory_usage'])) {
                 $avgMemory = array_sum($data['memory_usage']) / count($data['memory_usage']);
-                $this->line("💾 {$operation}: Avg memory usage " . $this->formatBytes($avgMemory));
+                $this->line("💾 {$operation}: Avg memory usage " . ByteHelper::formatBytes($avgMemory));
             }
         }
     }
@@ -94,48 +95,48 @@ class OptimizeCommand extends Command
     private function checkConfiguration(): void
     {
         $this->info('⚙️  Checking configuration...');
-        
+
         $recommendations = [];
-        
+
         // Check performance settings
         $memoryLimit = ini_get('memory_limit');
         $uploadMaxFilesize = ini_get('upload_max_filesize');
         $postMaxSize = ini_get('post_max_size');
-        
+
         $this->line("Current PHP settings:");
         $this->line("  Memory limit: {$memoryLimit}");
         $this->line("  Upload max filesize: {$uploadMaxFilesize}");
         $this->line("  Post max size: {$postMaxSize}");
-        
+
         // Check Filex config
         $batchSize = config('filex.performance.batch_size', 5);
         $parallelUploads = config('filex.performance.parallel_uploads', 2);
         $cachingEnabled = config('filex.optimization.enable_caching', true);
         $metricsEnabled = config('filex.monitoring.enable_metrics', false);
-        
+
         $this->line("\nFilex configuration:");
         $this->line("  Batch size: {$batchSize}");
         $this->line("  Parallel uploads: {$parallelUploads}");
         $this->line("  Caching enabled: " . ($cachingEnabled ? 'Yes' : 'No'));
         $this->line("  Metrics enabled: " . ($metricsEnabled ? 'Yes' : 'No'));
-        
+
         // Provide recommendations
         if ($batchSize > 10) {
             $recommendations[] = "Consider reducing batch_size from {$batchSize} to 5-10 for better memory usage";
         }
-        
+
         if ($parallelUploads > 3) {
             $recommendations[] = "Consider reducing parallel_uploads from {$parallelUploads} to 2-3 to avoid server overload";
         }
-        
+
         if (!$cachingEnabled) {
             $recommendations[] = "Enable caching for better performance: filex.optimization.enable_caching = true";
         }
-        
+
         if (!$metricsEnabled) {
             $recommendations[] = "Enable metrics for performance monitoring: filex.monitoring.enable_metrics = true";
         }
-        
+
         if (!empty($recommendations)) {
             $this->warn("\n💡 Recommendations:");
             foreach ($recommendations as $recommendation) {
@@ -149,16 +150,16 @@ class OptimizeCommand extends Command
     private function runFullOptimization(): void
     {
         $this->info('🔧 Running full optimization...');
-        
+
         // Clear cache
         $this->clearCache();
-        
+
         // Optimize configuration
         $this->optimizeConfig();
-        
+
         // Clear old performance metrics
         $this->callPerformanceMonitorClearMetrics();
-        
+
         $this->info('✅ Optimization complete!');
         $this->line('');
         $this->line('Next steps:');
@@ -170,20 +171,12 @@ class OptimizeCommand extends Command
     private function optimizeConfig(): void
     {
         $this->info('⚙️  Optimizing configuration...');
-        
+
         // This would typically write optimized config values
         // For now, we'll just show recommendations
         $this->line('Configuration optimization complete');
     }
 
-    private function formatBytes(int $bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB'];
-        $factor = floor((strlen($bytes) - 1) / 3);
-        
-        return sprintf("%.2f %s", $bytes / pow(1024, $factor), $units[$factor] ?? 'TB');
-    }
-    
     /**
      * Wrapper method for PerformanceMonitor::getAggregatedMetrics to make testing easier
      */
@@ -191,7 +184,7 @@ class OptimizeCommand extends Command
     {
         return PerformanceMonitor::getAggregatedMetrics();
     }
-    
+
     /**
      * Wrapper method for PerformanceMonitor::clearMetrics to make testing easier
      */

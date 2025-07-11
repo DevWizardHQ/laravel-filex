@@ -10,51 +10,53 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Carbon\Carbon;
+use DevWizard\Filex\Support\ByteHelper;
+use DevWizard\Filex\Support\ConfigHelper;
+use DevWizard\Filex\Services\PerformanceMonitor;
 
 class FilexService
 {
     /**
-     * Static cache for configuration values
+     * Configuration cache to avoid repeated config() calls
      */
     private static array $configCache = [];
 
     /**
-     * Static cache for allowed extensions
+     * Runtime caches for performance optimization
      */
-    private static ?array $allowedExtensions = null;
+    private static array $runtimeCaches = [
+        'allowedExtensions' => null,
+        'allowedMimeTypes' => null,
+        'suspiciousPatterns' => null,
+        'tempDisk' => null,
+        'defaultDisk' => null,
+    ];
 
     /**
-     * Static cache for allowed MIME types
-     */
-    private static ?array $allowedMimeTypes = null;
-
-    /**
-     * Static cache for suspicious patterns (micro-optimization)
-     */
-    private static ?array $suspiciousPatterns = null;
-
-    /**
-     * Static cache for MIME type detection
+     * Dedicated cache arrays for better performance
      */
     private static array $mimeTypeCache = [];
+    private static array $bufferSizeCache = [];
+    private static array $byteFormatCache = [];
+    private static array $signatureCache = [];
 
     /**
-     * Static cache for memory thresholds
+     * Cache size limits to prevent memory leaks
+     */
+    private const MAX_CACHE_SIZE = [
+        'mimeType' => 1000,
+        'bufferSize' => 100,
+        'byteFormat' => 100,
+        'signature' => 500,
+    ];
+
+    /**
+     * Memory thresholds for monitoring
      */
     private static ?array $memoryThresholds = null;
 
     /**
-     * Static cache for buffer sizes
-     */
-    private static array $bufferSizeCache = [];
-
-    /**
-     * Static cache for byte formatting
-     */
-    private static array $byteFormatCache = [];
-
-    /**
-     * Memory usage high watermark
+     * Performance monitoring
      */
     private static ?float $memoryHighWatermark = null;
 
@@ -105,9 +107,18 @@ class FilexService
     public static function clearConfigCache(): void
     {
         self::$configCache = [];
-        self::$allowedExtensions = null;
-        self::$allowedMimeTypes = null;
-        self::$suspiciousPatterns = null;
+        self::$runtimeCaches = [
+            'allowedExtensions' => null,
+            'allowedMimeTypes' => null,
+            'suspiciousPatterns' => null,
+            'tempDisk' => null,
+            'defaultDisk' => null,
+        ];
+        self::$mimeTypeCache = [];
+        self::$bufferSizeCache = [];
+        self::$byteFormatCache = [];
+        self::$signatureCache = [];
+        self::$memoryThresholds = null;
     }
 
     /**
@@ -123,7 +134,7 @@ class FilexService
             }
 
             $fileSize = $tempDisk->size($tempPath);
-            $maxSize = config('filex.max_file_size', 10) * 1024 * 1024; // Convert MB to bytes
+            $maxSize = ConfigHelper::getMaxFileSize();
 
             if ($fileSize > $maxSize) {
                 return ['valid' => false, 'message' => __('filex::translations.errors.file_size_exceeds_limit')];
@@ -131,21 +142,16 @@ class FilexService
 
             // Get file extension
             $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-            $allowedExtensions = config('filex.allowed_extensions', []);
 
-            if (!in_array($extension, $allowedExtensions)) {
+            if (!$this->allowsExtension($extension)) {
                 return ['valid' => false, 'message' => __('filex::translations.errors.file_type_not_allowed')];
             }
 
             // Additional MIME type validation for security
             $tempFilePath = $tempDisk->path($tempPath);
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            $mimeType = finfo_file($finfo, $tempFilePath);
-            finfo_close($finfo);
+            $mimeType = $this->detectRealMimeType($tempFilePath);
 
-            $allowedMimeTypes = config('filex.allowed_mime_types', []);
-
-            if (!in_array($mimeType, $allowedMimeTypes)) {
+            if (!$this->allowsMimeType($mimeType)) {
                 return ['valid' => false, 'message' => __('filex::translations.errors.invalid_file_type_detected')];
             }
 
@@ -166,7 +172,7 @@ class FilexService
             $metadataPath = $tempPath . '.meta';
             $metadataContent = json_encode(array_merge($metadata, [
                 'created_at' => now()->toISOString(),
-                'expires_at' => now()->addHours(config('filex.temp_expiry_hours', 24))->toISOString()
+                'expires_at' => now()->addHours(ConfigHelper::get('temp_expiry_hours', 24))->toISOString()
             ]));
 
             return $tempDisk->put($metadataPath, $metadataContent);
@@ -226,7 +232,7 @@ class FilexService
      */
     public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): array
     {
-        $disk = $disk ?? config('filex.default_disk', 'public');
+        $disk = $disk ?? ConfigHelper::getDefaultDisk();
         $tempDisk = $this->getTempDisk();
         $results = [];
 
@@ -314,7 +320,7 @@ class FilexService
                 } else {
                     // File without metadata or expired metadata, check file age
                     $fileTime = $tempDisk->lastModified($file);
-                    $maxAge = config('filex.temp_expiry_hours', 24) * 3600;
+                    $maxAge = ConfigHelper::get('temp_expiry_hours', 24) * 3600;
 
                     if (time() - $fileTime > $maxAge) {
                         if ($this->deleteTemp($file)) {
@@ -348,31 +354,17 @@ class FilexService
     }
 
     /**
-     * Get file size in human readable format
-     */
-    public function formatSize(int $bytes): string
-    {
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= (1 << (10 * $pow));
-
-        return round($bytes, 2) . ' ' . $units[$pow];
-    }
-
-    /**
      * Validate file extension against allowed types with caching
      */
     public function allowsExtension(string $extension): bool
     {
-        if (self::$allowedExtensions === null) {
-            self::$allowedExtensions = array_flip(
-                $this->getCachedConfig('filex.allowed_extensions', [])
+        if (self::$runtimeCaches['allowedExtensions'] === null) {
+            self::$runtimeCaches['allowedExtensions'] = array_flip(
+                ConfigHelper::get('allowed_extensions', [])
             );
         }
 
-        return isset(self::$allowedExtensions[strtolower($extension)]);
+        return isset(self::$runtimeCaches['allowedExtensions'][strtolower($extension)]);
     }
 
     /**
@@ -380,13 +372,87 @@ class FilexService
      */
     public function allowsMimeType(string $mimeType): bool
     {
-        if (self::$allowedMimeTypes === null) {
-            self::$allowedMimeTypes = array_flip(
-                $this->getCachedConfig('filex.allowed_mime_types', [])
+        if (self::$runtimeCaches['allowedMimeTypes'] === null) {
+            self::$runtimeCaches['allowedMimeTypes'] = array_flip(
+                ConfigHelper::get('allowed_mime_types', [])
             );
         }
 
-        return isset(self::$allowedMimeTypes[$mimeType]);
+        return isset(self::$runtimeCaches['allowedMimeTypes'][$mimeType]);
+    }
+
+    /**
+     * Memory-efficient file validation for large files
+     */
+    public function validateLargeFile(string $tempPath, string $originalName, int $chunkSize = 8192): array
+    {
+        try {
+            $tempDisk = $this->getTempDisk();
+
+            if (!$tempDisk->exists($tempPath)) {
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_not_found')];
+            }
+
+            $fileSize = $tempDisk->size($tempPath);
+            $maxSize = ConfigHelper::getMaxFileSize();
+
+            if ($fileSize > $maxSize) {
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_size_exceeds_limit')];
+            }
+
+            // Get file extension
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+            if (!$this->allowsExtension($extension)) {
+                return ['valid' => false, 'message' => __('filex::translations.errors.file_type_not_allowed')];
+            }
+
+            // For large files, use streaming validation
+            if ($fileSize > 50 * 1024 * 1024) { // 50MB threshold
+                return $this->validateStreamingFile($tempPath, $originalName, $chunkSize);
+            }
+
+            // Use regular validation for smaller files
+            return $this->validateTemp($tempPath, $originalName);
+        } catch (\Exception $e) {
+            Log::error('Large file validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
+            return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
+        }
+    }
+
+    /**
+     * Streaming file validation for very large files
+     */
+    protected function validateStreamingFile(string $tempPath, string $originalName, int $chunkSize): array
+    {
+        $tempDisk = $this->getTempDisk();
+        $filePath = $tempDisk->path($tempPath);
+
+        $handle = fopen($filePath, 'rb');
+        if (!$handle) {
+            return ['valid' => false, 'message' => __('filex::translations.errors.chunk_file_error')];
+        }
+
+        try {
+            // Read first chunk for MIME detection
+            $firstChunk = fread($handle, min($chunkSize, 1024));
+            if ($firstChunk === false) {
+                return ['valid' => false, 'message' => __('filex::translations.errors.chunk_file_error')];
+            }
+
+            // Basic MIME detection from first chunk
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_buffer($finfo, $firstChunk);
+            finfo_close($finfo);
+
+            if (!$this->allowsMimeType($mimeType)) {
+                return ['valid' => false, 'message' => __('filex::translations.errors.invalid_file_type_detected')];
+            }
+
+            return ['valid' => true, 'message' => __('filex::translations.validation')];
+        } finally {
+            fclose($handle);
+        }
     }
 
     /**
@@ -467,7 +533,7 @@ class FilexService
      */
     public function storeStream(UploadedFile $file, string $directory, ?string $disk = null, ?string $filename = null): string
     {
-        $disk = $disk ?? config('filex.temp_disk', 'local');
+        $disk = $disk ?? ConfigHelper::getTempDisk();
         $diskInstance = Storage::disk($disk);
 
         if (!$filename) {
@@ -505,7 +571,7 @@ class FilexService
      */
     public function storeOptimized(UploadedFile $file, string $directory, ?string $disk = null, ?string $filename = null): string
     {
-        $disk = $disk ?? config('filex.temp_disk', 'local');
+        $disk = $disk ?? ConfigHelper::getTempDisk();
         $diskInstance = Storage::disk($disk);
 
         if (!$filename) {
@@ -553,14 +619,14 @@ class FilexService
 
             // Quick size check
             $fileSize = $tempDisk->size($tempPath);
-            $maxSize = config('filex.max_file_size', 10) * 1024 * 1024;
+            $maxSize = ConfigHelper::getMaxFileSize();
 
             if ($fileSize > $maxSize) {
                 return ['valid' => false, 'message' => __('filex::translations.errors.file_size_exceeds_limit')];
             }
 
             // Defer expensive MIME validation if configured
-            if (config('filex.performance.defer_validation', true)) {
+            if (ConfigHelper::get('performance.defer_validation', true)) {
                 return ['valid' => true, 'message' => __('filex::translations.validation')];
             }
 
@@ -597,11 +663,11 @@ class FilexService
             }
         }
 
-        // Cache the result
+        // Cache the result with size limit
         self::$mimeTypeCache[$cacheKey] = $mimeType;
 
-        // Limit cache size
-        if (count(self::$mimeTypeCache) > 1000) {
+        // Limit cache size to prevent memory leaks
+        if (count(self::$mimeTypeCache) > self::MAX_CACHE_SIZE['mimeType']) {
             array_shift(self::$mimeTypeCache);
         }
 
@@ -620,7 +686,7 @@ class FilexService
         }
 
         // Base buffer size on file size and available memory
-        $memoryLimit = $this->convertToBytes(ini_get('memory_limit'));
+        $memoryLimit = ByteHelper::convertToBytes(ini_get('memory_limit'));
         $currentUsage = memory_get_usage(true);
         $availableMemory = $memoryLimit - $currentUsage;
 
@@ -639,31 +705,15 @@ class FilexService
         $maxBuffer = (int)($availableMemory * 0.1);
         $bufferSize = min($bufferSize, $maxBuffer);
 
-        // Cache the result
+        // Cache the result with size limit
         self::$bufferSizeCache[$cacheKey] = $bufferSize;
 
-        return $bufferSize;
-    }
-
-    /**
-     * Convert PHP ini memory value to bytes
-     */
-    private function convertToBytes(string $memoryValue): int
-    {
-        $memoryValue = trim($memoryValue);
-        $value = (int) $memoryValue;
-        $unit = strtolower($memoryValue[strlen($memoryValue) - 1]);
-
-        switch ($unit) {
-            case 'g':
-                $value *= 1024;
-            case 'm':
-                $value *= 1024;
-            case 'k':
-                $value *= 1024;
+        // Limit cache size to prevent memory leaks
+        if (count(self::$bufferSizeCache) > self::MAX_CACHE_SIZE['bufferSize']) {
+            array_shift(self::$bufferSizeCache);
         }
 
-        return $value;
+        return $bufferSize;
     }
 
     /**
@@ -671,9 +721,9 @@ class FilexService
      */
     public function moveBatch(array $tempPaths, string $targetDirectory, ?string $disk = null): array
     {
-        $disk = $disk ?? config('filex.default_disk', 'public');
+        $disk = $disk ?? ConfigHelper::getDefaultDisk();
         $tempDisk = $this->getTempDisk();
-        $batchSize = config('filex.performance.batch_size', 5);
+        $batchSize = ConfigHelper::get('performance.batch_size', 5);
         $results = [];
 
         // Process in batches to manage memory
@@ -751,7 +801,7 @@ class FilexService
     {
         try {
             // Check if suspicious detection is enabled
-            if (!$this->getCachedConfig('filex.security.suspicious_detection.enabled', true)) {
+            if (!ConfigHelper::get('security.suspicious_detection.enabled', true)) {
                 return $this->validateTemp($tempPath, $originalName);
             }
 
@@ -772,7 +822,7 @@ class FilexService
             }
 
             // 2. File signature validation (if enabled)
-            if ($this->getCachedConfig('filex.security.suspicious_detection.validate_signatures', true)) {
+            if (ConfigHelper::get('security.suspicious_detection.validate_signatures', true)) {
                 if (!$this->validateFileSignature($filePath, $extension)) {
                     return ['valid' => false, 'message' => __('filex::translations.errors.file_signature_validation_failed')];
                 }
@@ -784,7 +834,7 @@ class FilexService
             }
 
             // 4. Security scanning (if enabled)
-            if ($this->getCachedConfig('filex.security.suspicious_detection.scan_content', true)) {
+            if (ConfigHelper::get('security.suspicious_detection.scan_content', true)) {
                 if (!$this->scanForThreats($filePath, $originalName)) {
                     return ['valid' => false, 'message' => __('filex::translations.errors.file_security_validation_failed')];
                 }
@@ -801,10 +851,16 @@ class FilexService
     }
 
     /**
-     * Validate file signature (magic bytes)
+     * Validate file signature (magic bytes) with caching
      */
     protected function validateFileSignature(string $filePath, string $extension): bool
     {
+        $cacheKey = $extension . '_' . md5_file($filePath);
+
+        if (isset(self::$signatureCache[$cacheKey])) {
+            return self::$signatureCache[$cacheKey];
+        }
+
         if (!file_exists($filePath) || !is_readable($filePath)) {
             return false;
         }
@@ -833,17 +889,24 @@ class FilexService
             'pptx' => ["PK\x03\x04"],
         ];
 
-        if (!isset($signatures[$extension])) {
-            return true; // No signature check for this extension
-        }
-
-        foreach ($signatures[$extension] as $signature) {
-            if (str_starts_with($header, $signature)) {
-                return true;
+        $result = true;
+        if (isset($signatures[$extension])) {
+            $result = false;
+            foreach ($signatures[$extension] as $signature) {
+                if (str_starts_with($header, $signature)) {
+                    $result = true;
+                    break;
+                }
             }
         }
 
-        return false;
+        // Cache the result with size limit
+        self::$signatureCache[$cacheKey] = $result;
+        if (count(self::$signatureCache) > self::MAX_CACHE_SIZE['signature']) {
+            array_shift(self::$signatureCache);
+        }
+
+        return $result;
     }
 
     /**
@@ -988,7 +1051,7 @@ class FilexService
         fclose($handle);
 
         // Get executable signatures from config
-        $executableSignatures = $this->getCachedConfig('filex.security.executable_signatures', [
+        $executableSignatures = ConfigHelper::get('security.executable_signatures', [
             "\x4D\x5A",           // PE/EXE files
             "\x7FELF",            // ELF files
             "\xCF\xFA\xED\xFE",   // Mach-O files
@@ -1021,7 +1084,7 @@ class FilexService
         }
 
         // Get suspicious patterns from config
-        $suspiciousPatterns = $this->getCachedConfig('filex.security.suspicious_filename_patterns', [
+        $suspiciousPatterns = ConfigHelper::get('security.suspicious_filename_patterns', [
             // Default patterns if config is not available
             '/\.[a-z]{2,4}\.[a-z]{2,4}$/i',
             '/\.(php|phtml|php3|php4|php5)$/i',
@@ -1046,7 +1109,7 @@ class FilexService
     {
         // Only scan text-based files to avoid false positives
         $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $textExtensions = $this->getCachedConfig('filex.security.text_extensions_to_scan', [
+        $textExtensions = ConfigHelper::get('security.text_extensions_to_scan', [
             'txt',
             'html',
             'htm',
@@ -1075,8 +1138,8 @@ class FilexService
         }
 
         // Get suspicious patterns from config with caching
-        if (self::$suspiciousPatterns === null) {
-            self::$suspiciousPatterns = $this->getCachedConfig('filex.security.suspicious_content_patterns', [
+        if (self::$runtimeCaches['suspiciousPatterns'] === null) {
+            self::$runtimeCaches['suspiciousPatterns'] = ConfigHelper::get('security.suspicious_content_patterns', [
                 // Default patterns if config is not available
                 '/<\?php/i',
                 '/<%[^>]*%>/i',
@@ -1094,7 +1157,7 @@ class FilexService
         }
 
         // Use optimized pattern matching with early exit
-        foreach (self::$suspiciousPatterns as $pattern) {
+        foreach (self::$runtimeCaches['suspiciousPatterns'] as $pattern) {
             if (preg_match($pattern, $content)) {
                 return true; // Early exit on first match
             }
@@ -1110,12 +1173,12 @@ class FilexService
     {
         try {
             // Check if quarantine is enabled
-            if (!$this->getCachedConfig('filex.security.suspicious_detection.quarantine_enabled', true)) {
+            if (!ConfigHelper::get('security.suspicious_detection.quarantine_enabled', true)) {
                 return false;
             }
 
             $tempDisk = $this->getTempDisk();
-            $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
+            $quarantineBaseDir = ConfigHelper::get('security.quarantine.directory', 'quarantine');
             $quarantineDir = $quarantineBaseDir . '/' . date('Y/m/d');
             $quarantineFile = $quarantineDir . '/' . basename($tempPath) . '_' . time();
 
@@ -1161,7 +1224,7 @@ class FilexService
      */
     public function isSuspiciousDetectionEnabled(): bool
     {
-        return $this->getCachedConfig('filex.security.suspicious_detection.enabled', true);
+        return ConfigHelper::get('security.suspicious_detection.enabled', true);
     }
 
     /**
@@ -1170,9 +1233,9 @@ class FilexService
     public function cleanupQuarantine(): array
     {
         $tempDisk = $this->getTempDisk();
-        $quarantineBaseDir = $this->getCachedConfig('filex.security.quarantine.directory', 'quarantine');
-        $retentionDays = $this->getCachedConfig('filex.security.quarantine.retention_days', 30);
-        $autoCleanup = $this->getCachedConfig('filex.security.quarantine.auto_cleanup', true);
+        $quarantineBaseDir = ConfigHelper::get('security.quarantine.directory', 'quarantine');
+        $retentionDays = ConfigHelper::get('security.quarantine.retention_days', 30);
+        $autoCleanup = ConfigHelper::get('security.quarantine.auto_cleanup', true);
 
         $cleaned = [];
         $errors = [];
@@ -1254,11 +1317,200 @@ class FilexService
     }
 
     /**
-     * Get the temporary storage disk instance
+     * Bulk file operations with enhanced error handling and performance monitoring
+     */
+    public function bulkFileOperations(array $operations): array
+    {
+        $startTime = microtime(true);
+        PerformanceMonitor::startTimer('bulk_operations');
+
+        $results = [
+            'completed' => [],
+            'failed' => [],
+            'metrics' => [],
+        ];
+
+        $batchSize = ConfigHelper::get('performance.bulk_batch_size', 10);
+        $batches = array_chunk($operations, $batchSize);
+
+        foreach ($batches as $batchIndex => $batch) {
+            PerformanceMonitor::startTimer("bulk_batch_{$batchIndex}");
+
+            foreach ($batch as $operation) {
+                try {
+                    $result = $this->executeFileOperation($operation);
+                    if ($result['success']) {
+                        $results['completed'][] = $result;
+                    } else {
+                        $results['failed'][] = $result;
+                    }
+                } catch (\Exception $e) {
+                    $results['failed'][] = [
+                        'operation' => $operation,
+                        'error' => $e->getMessage(),
+                        'success' => false,
+                    ];
+                }
+            }
+
+            // Monitor memory and optimize if needed
+            $this->checkMemoryUsage();
+            if (memory_get_usage(true) > ByteHelper::convertToBytes(ini_get('memory_limit')) * 0.8) {
+                $this->optimizeCaches();
+            }
+
+            PerformanceMonitor::endTimer("bulk_batch_{$batchIndex}");
+        }
+
+        $endTime = microtime(true);
+        $results['metrics'] = [
+            'total_time' => $endTime - $startTime,
+            'total_operations' => count($operations),
+            'completed_count' => count($results['completed']),
+            'failed_count' => count($results['failed']),
+            'memory_peak' => memory_get_peak_usage(true),
+            'batches_processed' => count($batches),
+        ];
+
+        PerformanceMonitor::endTimer('bulk_operations', $results['metrics']);
+
+        return $results;
+    }
+
+    /**
+     * Execute a single file operation based on type
+     */
+    protected function executeFileOperation(array $operation): array
+    {
+        $type = $operation['type'] ?? 'unknown';
+
+        switch ($type) {
+            case 'move':
+                return $this->executeMoveOperation($operation);
+            case 'validate':
+                return $this->executeValidateOperation($operation);
+            case 'cleanup':
+                return $this->executeCleanupOperation($operation);
+            default:
+                return [
+                    'success' => false,
+                    'operation' => $operation,
+                    'error' => 'Unknown operation type: ' . $type,
+                ];
+        }
+    }
+
+    /**
+     * Execute move operation
+     */
+    protected function executeMoveOperation(array $operation): array
+    {
+        $tempPath = $operation['tempPath'] ?? '';
+        $targetDirectory = $operation['targetDirectory'] ?? '';
+        $disk = $operation['disk'] ?? null;
+
+        if (empty($tempPath) || empty($targetDirectory)) {
+            return [
+                'success' => false,
+                'operation' => $operation,
+                'error' => 'Missing required parameters for move operation',
+            ];
+        }
+
+        $result = $this->moveFile($tempPath, $targetDirectory, $disk ?? ConfigHelper::getDefaultDisk(), $this->getTempDisk());
+        return array_merge($result, ['operation' => $operation]);
+    }
+
+    /**
+     * Execute validation operation
+     */
+    protected function executeValidateOperation(array $operation): array
+    {
+        $tempPath = $operation['tempPath'] ?? '';
+        $originalName = $operation['originalName'] ?? '';
+        $useSecure = $operation['secure'] ?? false;
+
+        if (empty($tempPath) || empty($originalName)) {
+            return [
+                'success' => false,
+                'operation' => $operation,
+                'error' => 'Missing required parameters for validate operation',
+            ];
+        }
+
+        if ($useSecure) {
+            $result = $this->validateSecure($tempPath, $originalName);
+        } else {
+            $result = $this->validateTemp($tempPath, $originalName);
+        }
+
+        return [
+            'success' => $result['valid'],
+            'operation' => $operation,
+            'message' => $result['message'],
+        ];
+    }
+
+    /**
+     * Execute cleanup operation
+     */
+    protected function executeCleanupOperation(array $operation): array
+    {
+        $type = $operation['cleanupType'] ?? 'temp';
+
+        switch ($type) {
+            case 'temp':
+                $result = $this->cleanup();
+                break;
+            case 'quarantine':
+                $result = $this->cleanupQuarantine();
+                break;
+            default:
+                return [
+                    'success' => false,
+                    'operation' => $operation,
+                    'error' => 'Unknown cleanup type: ' . $type,
+                ];
+        }
+
+        return [
+            'success' => $result['error_count'] === 0,
+            'operation' => $operation,
+            'cleaned_count' => $result['cleaned_count'],
+            'error_count' => $result['error_count'],
+        ];
+    }
+
+    /**
+     * Get file size in human readable format
+     */
+    public function formatSize(int $bytes): string
+    {
+        return ByteHelper::formatBytes($bytes);
+    }
+
+    /**
+     * Get the default storage disk instance with caching
+     */
+    public function getDefaultDisk()
+    {
+        if (self::$runtimeCaches['defaultDisk'] === null) {
+            self::$runtimeCaches['defaultDisk'] = Storage::disk(ConfigHelper::getDefaultDisk());
+        }
+
+        return self::$runtimeCaches['defaultDisk'];
+    }
+
+    /**
+     * Get the temporary storage disk instance with caching
      */
     public function getTempDisk()
     {
-        return Storage::disk(config('filex.temp_disk', 'local'));
+        if (self::$runtimeCaches['tempDisk'] === null) {
+            self::$runtimeCaches['tempDisk'] = Storage::disk(ConfigHelper::getTempDisk());
+        }
+
+        return self::$runtimeCaches['tempDisk'];
     }
 
     /**
@@ -1406,8 +1658,8 @@ class FilexService
         PerformanceMonitor::startTimer('bulk_file_move');
         PerformanceMonitor::checkMemoryUsage('Before bulk file move');
 
-        $disk = $disk ?? $this->getCachedConfig('filex.default_disk', 'public');
-        $batchSize = $this->getCachedConfig('filex.performance.batch_size', 5);
+        $disk = $disk ?? ConfigHelper::getDefaultDisk();
+        $batchSize = ConfigHelper::get('performance.batch_size', 5);
         $tempDisk = $this->getTempDisk();
         $targetDisk = Storage::disk($disk);
         $results = [];
@@ -1472,7 +1724,7 @@ class FilexService
     private function processMoveFileBatch(array $batch, string $targetDirectory, $tempDisk, $targetDisk): array
     {
         $results = [];
-        $memoryLimit = $this->convertToBytes(ini_get('memory_limit'));
+        $memoryLimit = ByteHelper::convertToBytes(ini_get('memory_limit'));
         $memoryThreshold = $memoryLimit * 0.8; // 80% of memory limit
 
         foreach ($batch as $tempPath) {
@@ -1567,19 +1819,13 @@ class FilexService
             return self::$byteFormatCache[$cacheKey];
         }
 
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= pow(1024, $pow);
+        $result = ByteHelper::formatBytes($bytes);
 
-        $result = round($bytes, 2) . ' ' . $units[$pow];
-
-        // Cache the result
+        // Cache the result with size limit
         self::$byteFormatCache[$cacheKey] = $result;
 
-        // Limit cache size
-        if (count(self::$byteFormatCache) > 100) {
+        // Limit cache size to prevent memory leaks
+        if (count(self::$byteFormatCache) > self::MAX_CACHE_SIZE['byteFormat']) {
             array_shift(self::$byteFormatCache);
         }
 
@@ -1592,7 +1838,7 @@ class FilexService
     private function initMemoryThresholds(): void
     {
         if (self::$memoryThresholds === null) {
-            $limit = $this->convertToBytes(ini_get('memory_limit'));
+            $limit = ByteHelper::convertToBytes(ini_get('memory_limit'));
             self::$memoryThresholds = [
                 'warning' => $limit * 0.75,  // 75% of memory limit
                 'critical' => $limit * 0.85,  // 85% of memory limit
@@ -1622,7 +1868,7 @@ class FilexService
             self::$byteFormatCache = [];
             Log::warning('Emergency memory cleanup performed', [
                 'usage' => $this->formatBytes($currentUsage),
-                'limit' => $this->formatBytes($this->convertToBytes(ini_get('memory_limit')))
+                'limit' => $this->formatBytes(ByteHelper::convertToBytes(ini_get('memory_limit')))
             ]);
         } elseif ($currentUsage >= self::$memoryThresholds['critical']) {
             // Critical: Trigger garbage collection
@@ -1636,5 +1882,87 @@ class FilexService
                 'usage' => $this->formatBytes($currentUsage)
             ]);
         }
+    }
+
+    /**
+     * Log performance metrics for monitoring
+     */
+    public function logPerformanceMetrics(): array
+    {
+        $metrics = [
+            'memory_usage' => memory_get_usage(true),
+            'memory_peak' => memory_get_peak_usage(true),
+            'memory_limit' => ByteHelper::convertToBytes(ini_get('memory_limit')),
+            'cache_sizes' => [
+                'config' => count(self::$configCache),
+                'mimeType' => count(self::$mimeTypeCache),
+                'bufferSize' => count(self::$bufferSizeCache),
+                'byteFormat' => count(self::$byteFormatCache),
+                'signature' => count(self::$signatureCache),
+            ],
+            'memory_watermark' => self::$memoryHighWatermark,
+            'timestamp' => now()->toISOString(),
+        ];
+
+        // Log if memory usage is concerning
+        $memoryUsagePercent = ($metrics['memory_usage'] / $metrics['memory_limit']) * 100;
+        if ($memoryUsagePercent > 75) {
+            Log::warning('High memory usage detected in FilexService', [
+                'usage_percent' => round($memoryUsagePercent, 2),
+                'usage_mb' => round($metrics['memory_usage'] / 1024 / 1024, 2),
+                'limit_mb' => round($metrics['memory_limit'] / 1024 / 1024, 2),
+                'cache_sizes' => $metrics['cache_sizes'],
+            ]);
+        }
+
+        return $metrics;
+    }
+
+    /**
+     * Optimize cache sizes and clean up if needed
+     */
+    public function optimizeCaches(): array
+    {
+        $before = [
+            'mimeType' => count(self::$mimeTypeCache),
+            'bufferSize' => count(self::$bufferSizeCache),
+            'byteFormat' => count(self::$byteFormatCache),
+            'signature' => count(self::$signatureCache),
+        ];
+
+        // Clear caches that exceed optimal sizes
+        if (count(self::$mimeTypeCache) > (int)(self::MAX_CACHE_SIZE['mimeType'] * 0.8)) {
+            self::$mimeTypeCache = array_slice(self::$mimeTypeCache, -(int)(self::MAX_CACHE_SIZE['mimeType'] * 0.6), null, true);
+        }
+
+        if (count(self::$bufferSizeCache) > (int)(self::MAX_CACHE_SIZE['bufferSize'] * 0.8)) {
+            self::$bufferSizeCache = array_slice(self::$bufferSizeCache, -(int)(self::MAX_CACHE_SIZE['bufferSize'] * 0.6), null, true);
+        }
+
+        if (count(self::$byteFormatCache) > (int)(self::MAX_CACHE_SIZE['byteFormat'] * 0.8)) {
+            self::$byteFormatCache = array_slice(self::$byteFormatCache, -(int)(self::MAX_CACHE_SIZE['byteFormat'] * 0.6), null, true);
+        }
+
+        if (count(self::$signatureCache) > (int)(self::MAX_CACHE_SIZE['signature'] * 0.8)) {
+            self::$signatureCache = array_slice(self::$signatureCache, -(int)(self::MAX_CACHE_SIZE['signature'] * 0.6), null, true);
+        }
+
+        $after = [
+            'mimeType' => count(self::$mimeTypeCache),
+            'bufferSize' => count(self::$bufferSizeCache),
+            'byteFormat' => count(self::$byteFormatCache),
+            'signature' => count(self::$signatureCache),
+        ];
+
+        // Force garbage collection
+        if (function_exists('gc_collect_cycles')) {
+            gc_collect_cycles();
+        }
+
+        return [
+            'before' => $before,
+            'after' => $after,
+            'memory_freed' => memory_get_usage(true),
+        ];
     }
 }

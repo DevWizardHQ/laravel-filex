@@ -3,6 +3,7 @@
 namespace DevWizard\Filex\Rules;
 
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Closure;
 
@@ -38,19 +39,7 @@ class FilexSize implements ValidationRule
         $fileSize = $tempDisk->size($value);
 
         if ($fileSize !== $this->expectedSize) {
-            $fail(__('filex::validation.file_size_exact', ['size' => $this->formatBytes($this->expectedSize)]));
+            $fail(__('filex::validation.file_size_exact', ['size' => ByteHelper::formatBytes($this->expectedSize)]));
         }
-    }
-
-    protected function formatBytes(int $bytes): string
-    {
-        if ($bytes >= 1073741824) {
-            return number_format($bytes / 1073741824, 2) . ' GB';
-        } elseif ($bytes >= 1048576) {
-            return number_format($bytes / 1048576, 2) . ' MB';
-        } elseif ($bytes >= 1024) {
-            return number_format($bytes / 1024, 2) . ' KB';
-        }
-        return $bytes . ' bytes';
     }
 }

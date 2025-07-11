@@ -3,13 +3,14 @@
 namespace DevWizard\Filex\Services;
 
 use Illuminate\Support\Facades\Log;
+use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Support\Facades\Cache;
 
 class PerformanceMonitor
 {
     private static array $metrics = [];
     private static array $timers = [];
-    
+
     /**
      * Start performance timer
      */
@@ -19,7 +20,7 @@ class PerformanceMonitor
             self::$timers[$key] = microtime(true);
         }
     }
-    
+
     /**
      * End performance timer and log result
      */
@@ -28,19 +29,19 @@ class PerformanceMonitor
         if (!config('filex.monitoring.enable_metrics', false)) {
             return 0.0;
         }
-        
+
         if (!isset(self::$timers[$key])) {
             return 0.0;
         }
-        
+
         $duration = microtime(true) - self::$timers[$key];
         unset(self::$timers[$key]);
-        
+
         self::logMetric($key, $duration, $context);
-        
+
         return $duration;
     }
-    
+
     /**
      * Log performance metric
      */
@@ -49,7 +50,7 @@ class PerformanceMonitor
         if (!config('filex.monitoring.enable_metrics', false)) {
             return;
         }
-        
+
         $metric = [
             'key' => $key,
             'value' => $value,
@@ -58,28 +59,28 @@ class PerformanceMonitor
             'memory_peak' => memory_get_peak_usage(true),
             'context' => $context
         ];
-        
+
         self::$metrics[] = $metric;
-        
+
         // Log performance if enabled
         if (config('filex.monitoring.log_performance', false)) {
             Log::info('Filex Performance Metric', $metric);
         }
-        
+
         // Store in cache for analytics
         $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
         $cached = Cache::get($cacheKey, []);
         $cached[] = $metric;
-        
+
         // Limit cache size
         $maxEntries = config('filex.monitoring.max_log_entries', 1000);
         if (count($cached) > $maxEntries) {
             $cached = array_slice($cached, -$maxEntries);
         }
-        
+
         Cache::put($cacheKey, $cached, config('filex.optimization.cache_ttl', 3600));
     }
-    
+
     /**
      * Get performance metrics
      */
@@ -87,7 +88,7 @@ class PerformanceMonitor
     {
         return self::$metrics;
     }
-    
+
     /**
      * Clear stored metrics
      */
@@ -96,7 +97,7 @@ class PerformanceMonitor
         self::$metrics = [];
         self::$timers = [];
     }
-    
+
     /**
      * Get aggregated performance data
      */
@@ -104,16 +105,16 @@ class PerformanceMonitor
     {
         $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
         $metrics = Cache::get($cacheKey, []);
-        
+
         if (empty($metrics)) {
             return [];
         }
-        
+
         $aggregated = [];
-        
+
         foreach ($metrics as $metric) {
             $key = $metric['key'];
-            
+
             if (!isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'count' => 0,
@@ -124,7 +125,7 @@ class PerformanceMonitor
                     'memory_usage' => []
                 ];
             }
-            
+
             $aggregated[$key]['count']++;
             $aggregated[$key]['total_time'] += $metric['value'];
             $aggregated[$key]['avg_time'] = $aggregated[$key]['total_time'] / $aggregated[$key]['count'];
@@ -132,19 +133,19 @@ class PerformanceMonitor
             $aggregated[$key]['max_time'] = max($aggregated[$key]['max_time'], $metric['value']);
             $aggregated[$key]['memory_usage'][] = $metric['memory_usage'];
         }
-        
+
         return $aggregated;
     }
-    
+
     /**
      * Monitor memory usage
      */
     public static function checkMemoryUsage(string $context = ''): void
     {
         $memoryUsage = memory_get_usage(true);
-        $memoryLimit = self::convertToBytes(ini_get('memory_limit'));
+        $memoryLimit = ByteHelper::convertToBytes(ini_get('memory_limit'));
         $memoryPercent = ($memoryUsage / $memoryLimit) * 100;
-        
+
         if ($memoryPercent > 80) {
             Log::warning('High memory usage detected', [
                 'context' => $context,
@@ -152,32 +153,11 @@ class PerformanceMonitor
                 'memory_limit' => $memoryLimit,
                 'memory_percent' => $memoryPercent
             ]);
-            
+
             // Force garbage collection
             if (function_exists('gc_collect_cycles')) {
                 gc_collect_cycles();
             }
         }
-    }
-    
-    /**
-     * Convert PHP ini size to bytes
-     */
-    private static function convertToBytes(string $size): int
-    {
-        $size = trim($size);
-        $last = strtolower($size[strlen($size) - 1]);
-        $number = (int) $size;
-        
-        switch ($last) {
-            case 'g':
-                $number *= 1024;
-            case 'm':
-                $number *= 1024;
-            case 'k':
-                $number *= 1024;
-        }
-        
-        return $number;
     }
 }

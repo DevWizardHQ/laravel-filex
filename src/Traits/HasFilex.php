@@ -3,6 +3,7 @@
 namespace DevWizard\Filex\Traits;
 
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -10,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 trait HasFilex
 {
     protected $filexService;
-    
+
     /**
      * Cache for performance settings
      */
@@ -24,7 +25,7 @@ trait HasFilex
         if (!$this->filexService) {
             $this->filexService = app(FilexService::class);
         }
-        
+
         return $this->filexService;
     }
 
@@ -32,17 +33,17 @@ trait HasFilex
      * Optimized file processing with bulk operations and caching
      */
     protected function processFiles(
-        Request $request, 
-        string $fieldName, 
+        Request $request,
+        string $fieldName,
         string $targetDirectory,
         ?string $disk = null,
         bool $required = false
     ): array {
         // Apply performance settings once
         $this->applyPerformanceOptimizations();
-        
+
         $tempPaths = $request->input($fieldName, []);
-        
+
         // Handle single file upload (non-array input)
         if (!is_array($tempPaths)) {
             $tempPaths = $tempPaths ? [$tempPaths] : [];
@@ -60,10 +61,10 @@ trait HasFilex
 
         // Use bulk operations for better performance
         $filexService = $this->getFilexService();
-        
+
         // Pre-validate files in batch
         $validationResults = $this->validateFilesBatch($tempPaths);
-        $validPaths = array_filter($tempPaths, function($path, $index) use ($validationResults) {
+        $validPaths = array_filter($tempPaths, function ($path, $index) use ($validationResults) {
             return $validationResults[$index]['valid'];
         }, ARRAY_FILTER_USE_BOTH);
 
@@ -73,13 +74,13 @@ trait HasFilex
 
         // Use bulk move operation
         $results = $filexService->moveFilesBulk($validPaths, $targetDirectory, $disk);
-        
+
         // Extract successful file paths
         $successfulPaths = array_column(
-            array_filter($results, fn($r) => $r['success']), 
+            array_filter($results, fn($r) => $r['success']),
             'finalPath'
         );
-        
+
         // Log any failures
         $failures = array_filter($results, fn($r) => !$r['success']);
         if (!empty($failures)) {
@@ -91,7 +92,7 @@ trait HasFilex
 
         return $successfulPaths;
     }
-    
+
     /**
      * Apply performance optimizations once
      */
@@ -100,22 +101,22 @@ trait HasFilex
         if (self::$performanceOptimized) {
             return;
         }
-        
+
         // Apply performance settings early for large file operations
         $memoryLimit = config('filex.performance.memory_limit', '1G');
         $timeLimit = config('filex.performance.time_limit', 600);
-        
+
         ini_set('memory_limit', $memoryLimit);
         set_time_limit($timeLimit);
-        
+
         // Force garbage collection
         if (function_exists('gc_collect_cycles')) {
             gc_collect_cycles();
         }
-        
+
         self::$performanceOptimized = true;
     }
-    
+
     /**
      * Validate files in batch for better performance
      */
@@ -123,30 +124,30 @@ trait HasFilex
     {
         $results = [];
         $filexService = $this->getFilexService();
-        
+
         foreach ($tempPaths as $tempPath) {
             if (!is_string($tempPath) || !str_starts_with($tempPath, 'temp/')) {
                 $results[] = ['valid' => false, 'message' => 'Invalid temp path format'];
                 continue;
             }
-            
+
             $metadata = $filexService->getTempMeta($tempPath);
             if (!$metadata) {
                 $results[] = ['valid' => false, 'message' => 'File metadata not found'];
                 continue;
             }
-            
+
             $originalName = $metadata['original_name'] ?? basename($tempPath);
             $validation = $filexService->validateTemp($tempPath, $originalName);
             $results[] = $validation;
         }
-        
+
         return $results;
     }
 
     /**
      * Process a single uploaded file
-     * 
+     *
      * @param Request $request
      * @param string $fieldName
      * @param string $targetDirectory
@@ -155,20 +156,20 @@ trait HasFilex
      * @return string|null The final file path or null if no file
      */
     protected function processSingleFile(
-        Request $request, 
-        string $fieldName, 
+        Request $request,
+        string $fieldName,
         string $targetDirectory,
         ?string $disk = null,
         bool $required = false
     ): ?string {
         $files = $this->processFiles($request, $fieldName, $targetDirectory, $disk, $required);
-        
+
         return empty($files) ? null : $files[0];
     }
 
     /**
      * Validate temporary file paths before processing
-     * 
+     *
      * @param array $tempPaths
      * @return array Validation results
      */
@@ -179,7 +180,7 @@ trait HasFilex
 
         foreach ($tempPaths as $tempPath) {
             $metadata = $this->getFilexService()->getTempMeta($tempPath);
-            
+
             if ($metadata) {
                 $validFiles[] = $tempPath;
             } else {
@@ -198,7 +199,7 @@ trait HasFilex
 
     /**
      * Get information about uploaded files
-     * 
+     *
      * @param array $tempPaths
      * @return array File information
      */
@@ -208,7 +209,7 @@ trait HasFilex
 
         foreach ($tempPaths as $tempPath) {
             $metadata = $this->getFilexService()->getTempMeta($tempPath);
-            
+
             if ($metadata) {
                 $filesInfo[] = [
                     'temp_path' => $tempPath,
@@ -225,7 +226,7 @@ trait HasFilex
 
     /**
      * Clean up temporary files (useful in case of validation errors)
-     * 
+     *
      * @param array $tempPaths
      * @return array Cleanup results
      */
@@ -252,15 +253,15 @@ trait HasFilex
 
     /**
      * Handle file upload validation rules for form requests
-     * 
+     *
      * @param string $fieldName
      * @param bool $required
      * @param array $additionalRules
      * @return array Validation rules
      */
     protected function getValidationRules(
-        string $fieldName, 
-        bool $required = false, 
+        string $fieldName,
+        bool $required = false,
         array $additionalRules = []
     ): array {
         $rules = [
@@ -275,7 +276,7 @@ trait HasFilex
                 function ($attribute, $value, $fail) {
                     // Validate that temp file exists and belongs to current session/user
                     $metadata = $this->getFilexService()->getTempMeta($value);
-                    
+
                     if (!$metadata) {
                         $fail('The selected file is invalid or has expired.');
                         return;
@@ -283,7 +284,7 @@ trait HasFilex
 
                     $currentUserId = Auth::check() ? Auth::id() : null;
                     $currentSessionId = session()->getId();
-                    
+
                     if ($metadata['user_id'] !== $currentUserId && $metadata['session_id'] !== $currentSessionId) {
                         $fail('The selected file does not belong to your session.');
                     }
@@ -296,7 +297,7 @@ trait HasFilex
 
     /**
      * Prepare file upload data for database storage
-     * 
+     *
      * @param array $filePaths Final file paths after processing
      * @param array $metadata Additional metadata to store
      * @return array Prepared data
@@ -313,7 +314,7 @@ trait HasFilex
 
     /**
      * Handle bulk file operations (useful for updating existing records)
-     * 
+     *
      * @param Request $request
      * @param string $fieldName
      * @param array $existingFiles Current files to replace
@@ -330,11 +331,11 @@ trait HasFilex
     ): array {
         // Process new uploaded files
         $newFiles = $this->processFiles($request, $fieldName, $targetDirectory, $disk, false);
-        
+
         // Clean up old files if new files were uploaded
         if (!empty($newFiles) && !empty($existingFiles)) {
             $disk = $disk ?? config('filex.default_disk', 'public');
-            
+
             foreach ($existingFiles as $oldFile) {
                 try {
                     \Illuminate\Support\Facades\Storage::disk($disk)->delete($oldFile);
@@ -346,14 +347,14 @@ trait HasFilex
                 }
             }
         }
-        
+
         // Return new files if any were uploaded, otherwise keep existing files
         return !empty($newFiles) ? $newFiles : $existingFiles;
     }
-    
+
     /**
      * Check if file extension is allowed
-     * 
+     *
      * @param string $filename
      * @return bool
      */
@@ -362,10 +363,10 @@ trait HasFilex
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         return $this->getFilexService()->allowsExtension($extension);
     }
-    
+
     /**
      * Check if MIME type is allowed
-     * 
+     *
      * @param string $mimeType
      * @return bool
      */
@@ -373,10 +374,10 @@ trait HasFilex
     {
         return $this->getFilexService()->allowsMimeType($mimeType);
     }
-    
+
     /**
      * Format file size in human readable format
-     * 
+     *
      * @param int $bytes
      * @return string
      */
@@ -384,10 +385,10 @@ trait HasFilex
     {
         return $this->getFilexService()->formatSize($bytes);
     }
-    
+
     /**
      * Get file icon based on extension
-     * 
+     *
      * @param string $filename
      * @return string
      */
@@ -396,10 +397,10 @@ trait HasFilex
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
         return $this->getFilexService()->getFileIcon($extension);
     }
-    
+
     /**
      * Generate unique filename
-     * 
+     *
      * @param string $originalName
      * @return string
      */
@@ -407,10 +408,10 @@ trait HasFilex
     {
         return $this->getFilexService()->generateFileName($originalName);
     }
-    
+
     /**
      * Validate temp file
-     * 
+     *
      * @param string $tempPath
      * @param string $originalName
      * @return array
@@ -419,24 +420,24 @@ trait HasFilex
     {
         return $this->getFilexService()->validateTemp($tempPath, $originalName);
     }
-    
+
     /**
      * Get file validation errors for display
-     * 
+     *
      * @param array $tempPaths
      * @return array
      */
     protected function getValidationErrors(array $tempPaths): array
     {
         $errors = [];
-        
+
         foreach ($tempPaths as $tempPath) {
             $metadata = $this->getFilexService()->getTempMeta($tempPath);
-            
+
             if ($metadata) {
                 $originalName = $metadata['original_name'] ?? 'unknown';
                 $validation = $this->validateTempFile($tempPath, $originalName);
-                
+
                 if (!$validation['valid']) {
                     $errors[] = [
                         'temp_path' => $tempPath,
@@ -452,13 +453,13 @@ trait HasFilex
                 ];
             }
         }
-        
+
         return $errors;
     }
-    
+
     /**
      * Get storage disk instance
-     * 
+     *
      * @param string|null $disk
      * @return \Illuminate\Contracts\Filesystem\Filesystem
      */
@@ -467,30 +468,30 @@ trait HasFilex
         $disk = $disk ?? config('filex.default_disk', 'public');
         return \Illuminate\Support\Facades\Storage::disk($disk);
     }
-    
+
     /**
      * Get temp storage disk instance
-     * 
+     *
      * @return \Illuminate\Contracts\Filesystem\Filesystem
      */
     protected function getTempDisk(): \Illuminate\Contracts\Filesystem\Filesystem
     {
         return $this->getFilexService()->getTempDisk();
     }
-    
+
     /**
      * Clean expired temp files
-     * 
+     *
      * @return array
      */
     protected function cleanupExpired(): array
     {
         return $this->getFilexService()->cleanup();
     }
-    
+
     /**
      * Move files with progress tracking
-     * 
+     *
      * @param array $tempPaths
      * @param string $targetDirectory
      * @param string|null $disk
@@ -498,19 +499,19 @@ trait HasFilex
      * @return array
      */
     protected function moveFilesWithProgress(
-        array $tempPaths, 
-        string $targetDirectory, 
+        array $tempPaths,
+        string $targetDirectory,
         ?string $disk = null,
         ?callable $progressCallback = null
     ): array {
         $results = [];
         $total = count($tempPaths);
-        
+
         foreach ($tempPaths as $index => $tempPath) {
             try {
                 $result = $this->getFilexService()->moveFiles([$tempPath], $targetDirectory, $disk);
                 $results[] = $result[0] ?? ['success' => false, 'tempPath' => $tempPath];
-                
+
                 if ($progressCallback) {
                     $progressCallback($index + 1, $total, $tempPath);
                 }
@@ -522,13 +523,13 @@ trait HasFilex
                 ];
             }
         }
-        
+
         return $results;
     }
-    
+
     /**
      * Get upload statistics
-     * 
+     *
      * @param array $tempPaths
      * @return array
      */
@@ -543,13 +544,13 @@ trait HasFilex
             'largest_file' => 0,
             'smallest_file' => PHP_INT_MAX
         ];
-        
+
         foreach ($tempPaths as $tempPath) {
             $metadata = $this->getFilexService()->getTempMeta($tempPath);
-            
+
             if ($metadata) {
                 $stats['valid_files']++;
-                
+
                 // Get file size
                 try {
                     $size = $this->getTempDisk()->size($tempPath);
@@ -559,7 +560,7 @@ trait HasFilex
                 } catch (\Exception $e) {
                     // Ignore size calculation errors
                 }
-                
+
                 // Track file types
                 $originalName = $metadata['original_name'] ?? '';
                 $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
@@ -570,12 +571,12 @@ trait HasFilex
                 $stats['invalid_files']++;
             }
         }
-        
+
         // Format sizes
-        $stats['total_size_formatted'] = $this->formatFileSize($stats['total_size']);
-        $stats['largest_file_formatted'] = $this->formatFileSize($stats['largest_file']);
-        $stats['smallest_file_formatted'] = $stats['smallest_file'] === PHP_INT_MAX ? 'N/A' : $this->formatFileSize($stats['smallest_file']);
-        
+        $stats['total_size_formatted'] = ByteHelper::formatBytes($stats['total_size']);
+        $stats['largest_file_formatted'] = ByteHelper::formatBytes($stats['largest_file']);
+        $stats['smallest_file_formatted'] = $stats['smallest_file'] === PHP_INT_MAX ? 'N/A' : ByteHelper::formatBytes($stats['smallest_file']);
+
         return $stats;
     }
 }
