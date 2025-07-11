@@ -17,6 +17,19 @@ return [
         ],
         'max_file_size' => env('FILEX_MAX_SIZE', 10),
         'temp_expiry_hours' => env('FILEX_TEMP_EXPIRY', 24),
+
+        /*
+        |--------------------------------------------------------------------------
+        | File Visibility Settings
+        |--------------------------------------------------------------------------
+        |
+        | Configure the default visibility for uploaded files.
+        | Supported values: 'public', 'private'
+        |
+        */
+        'visibility' => [
+            'default' => env('FILEX_DEFAULT_VISIBILITY', 'public'),
+        ],
     ],
 
     /*

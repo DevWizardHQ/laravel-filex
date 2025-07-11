@@ -47,9 +47,9 @@ class Filex
     /**
      * Move temporary files to permanent storage
      */
-    public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): FilexResult
+    public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null, ?string $visibility = null): FilexResult
     {
-        $results = $this->service->moveFiles($tempPaths, $targetDirectory, $disk);
+        $results = $this->service->moveFiles($tempPaths, $targetDirectory, $disk, $visibility);
 
         return new FilexResult($results);
     }
@@ -57,9 +57,9 @@ class Filex
     /**
      * Move a single temporary file to permanent storage
      */
-    public function moveFile(string $tempPath, string $targetDirectory, ?string $disk = null): FilexResult
+    public function moveFile(string $tempPath, string $targetDirectory, ?string $disk = null, ?string $visibility = null): FilexResult
     {
-        $results = $this->service->moveFiles([$tempPath], $targetDirectory, $disk);
+        $results = $this->service->moveFiles([$tempPath], $targetDirectory, $disk, $visibility);
 
         return new FilexResult($results);
     }
@@ -70,5 +70,37 @@ class Filex
     public function cleanup(): array
     {
         return $this->service->cleanup();
+    }
+
+    /**
+     * Move files with public visibility
+     */
+    public function moveFilesPublic(array $tempPaths, string $targetDirectory, ?string $disk = null): FilexResult
+    {
+        return $this->moveFiles($tempPaths, $targetDirectory, $disk, 'public');
+    }
+
+    /**
+     * Move files with private visibility
+     */
+    public function moveFilesPrivate(array $tempPaths, string $targetDirectory, ?string $disk = null): FilexResult
+    {
+        return $this->moveFiles($tempPaths, $targetDirectory, $disk, 'private');
+    }
+
+    /**
+     * Move single file with public visibility
+     */
+    public function moveFilePublic(string $tempPath, string $targetDirectory, ?string $disk = null): FilexResult
+    {
+        return $this->moveFile($tempPath, $targetDirectory, $disk, 'public');
+    }
+
+    /**
+     * Move single file with private visibility
+     */
+    public function moveFilePrivate(string $tempPath, string $targetDirectory, ?string $disk = null): FilexResult
+    {
+        return $this->moveFile($tempPath, $targetDirectory, $disk, 'private');
     }
 }

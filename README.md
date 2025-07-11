@@ -315,8 +315,18 @@ class UploadController extends Controller
 ```php
 use DevWizard\Filex\Facades\Filex;
 
-// Move files
+// Move files with default visibility
 $result = Filex::moveFiles($tempPaths, 'uploads', 'public');
+
+// Move files with specific visibility
+$result = Filex::moveFiles($tempPaths, 'uploads', 'public', 'private');
+
+// Move files with convenience methods
+$result = Filex::moveFilesPublic($tempPaths, 'uploads/public');
+$result = Filex::moveFilesPrivate($tempPaths, 'uploads/private');
+
+// Move single file with visibility control
+$result = Filex::moveFilePrivate($tempPath, 'uploads/documents');
 
 // Generate unique filename
 $uniqueName = Filex::generateFileName('document.pdf');
@@ -326,6 +336,77 @@ $validation = Filex::validateTemp($tempPath, $originalName);
 
 // Clean up expired files
 $cleaned = Filex::cleanup();
+```
+
+### File Visibility Control
+
+Laravel Filex supports controlling file visibility when moving from temporary to permanent storage:
+
+```php
+use DevWizard\Filex\Traits\HasFilex;
+
+class DocumentController extends Controller
+{
+    use HasFilex;
+
+    public function storeDocument(Request $request)
+    {
+        // Validate file upload
+        $request->validate([
+            'document' => ['required', 'string', 'starts_with:temp/'],
+            'is_private' => ['boolean'],
+        ]);
+
+        // Move file with user-controlled visibility
+        $visibility = $request->boolean('is_private') ? 'private' : 'public';
+        $documentPath = $this->moveFile($request, 'document', 'documents', null, $visibility);
+
+        // Or use convenience methods
+        if ($request->boolean('is_private')) {
+            $documentPath = $this->moveFilePrivate($request, 'document', 'documents');
+        } else {
+            $documentPath = $this->moveFilePublic($request, 'document', 'documents');
+        }
+
+        // Save to database
+        $document = Document::create([
+            'name' => $request->input('name'),
+            'file_path' => $documentPath,
+            'is_private' => $request->boolean('is_private'),
+        ]);
+
+        return redirect()->back()->with('success', 'Document uploaded successfully!');
+    }
+
+    public function storeMultipleDocuments(Request $request)
+    {
+        // Validate multiple file uploads
+        $request->validate([
+            'documents' => ['required', 'array'],
+            'documents.*' => ['required', 'string', 'starts_with:temp/'],
+            'visibility' => ['required', 'in:public,private'],
+        ]);
+
+        // Move files with specified visibility
+        $documentPaths = $this->moveFiles(
+            $request,
+            'documents',
+            'documents',
+            null,
+            $request->input('visibility')
+        );
+
+        // Save all documents
+        foreach ($documentPaths as $path) {
+            Document::create([
+                'file_path' => $path,
+                'is_private' => $request->input('visibility') === 'private',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Documents uploaded successfully!');
+    }
+}
 ```
 
 ## 📝 Validation Rules
@@ -954,267 +1035,6 @@ App::setLocale('bn');
 // In Blade templates
 <x-filex-uploader name="files" />
 {{-- Messages will automatically use the current locale --}}
-```
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **Files not uploading**
-
-    - Check file size limits in PHP config
-    - Verify storage permissions
-    - Check network connectivity
-
-2. **Assets not loading**
-
-    - Run `php artisan filex:install --force`
-    - Clear browser cache
-    - Check asset paths
-
-3. **Validation errors**
-    - Verify temp files exist
-    - Check file permissions
-    - Review validation rules
-
-### Debug Mode
-
-Enable debug mode for detailed logging:
-
-```blade
-<x-filex-uploader name="files" :debug="true" />
-```
-
-## 📚 API Reference
-
-### FilexService Methods
-
-```php
-// Core file operations
-public function generateFileName(string $originalName): string
-public function validateTemp(string $tempPath, string $originalName): array
-public function validateSecure(string $tempPath, string $originalName): array
-public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): array
-public function moveFilesBulk(array $tempPaths, string $targetDirectory, ?string $disk = null): array
-public function cleanup(): array
-public function cleanupQuarantine(): array
-
-// File information and metadata
-public function getTempMeta(string $tempPath): ?array
-public function markTemp(string $tempPath, array $metadata): bool
-public function deleteTemp(string $tempPath): bool
-public function allowsExtension(string $extension): bool
-public function allowsMimeType(string $mimeType): bool
-public function getFileIcon(string $extension): string
-
-// Streaming and performance
-public function storeStream(UploadedFile $file, string $directory, ?string $disk = null, ?string $filename = null): string
-public function storeOptimized(UploadedFile $file, string $directory, ?string $disk = null, ?string $filename = null): string
-public function copyStream($sourceDisk, string $sourcePath, $targetDisk, string $targetPath): bool
-
-// Bulk operations
-public function bulkFileOperations(array $operations): array
-public function validateChunkedFile(string $chunkPath, int $chunkSize): array
-
-// Cache and performance
-public function logPerformanceMetrics(): array
-public function optimizeCaches(): array
-public function formatSize(int $bytes): string
-
-// Utility methods
-public function getDefaultDisk()
-public function getTempDisk()
-public function renderFilexAssetsAndRoutes(): string
-public function renderFilexAssets(): string
-```
-
-### HasFilex Trait Methods
-
-The simplified trait provides these essential methods:
-
-```php
-// Simple upload methods
-protected function moveFile(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
-protected function moveFiles(Request $request, string $fieldName, string $directory, ?string $disk = null): array
-
-// Validation helpers
-protected function getFileValidationRules(string $fieldName, bool $required = false): array
-protected function getFilesValidationRules(string $fieldName, bool $required = false): array
-
-// Cleanup utilities
-protected function cleanupTempFiles(array $tempPaths): int
-```
-
-**Example Usage:**
-
-```php
-// Single file upload
-$avatarPath = $this->moveFile($request, 'avatar', 'avatars');
-
-// Multiple file upload
-$documentPaths = $this->moveFiles($request, 'documents', 'documents/uploads');
-
-// Get validation rules
-$rules = [
-    'title' => 'required|string',
-    ...$this->getFilesValidationRules('documents', true),
-];
-
-// Cleanup if validation fails
-$tempPaths = $request->input('documents', []);
-$cleaned = $this->cleanupTempFiles($tempPaths);
-```
-
-### FilexResult Class
-
-The `FilexResult` class wraps array results from file operations and provides convenient access methods:
-
-```php
-// Single file results
-$result->getPath(): ?string                    // Get first successful file path
-$result->getSuccessfulPaths(): array          // Get all successful file paths
-$result->getFailedPaths(): array              // Get all failed file paths
-
-// Detailed results
-$result->getResults(): array                   // Get raw results array
-$result->getSuccessful(): array               // Get successful operations
-$result->getFailed(): array                   // Get failed operations
-$result->getFirstSuccessful(): ?array         // Get first successful operation
-$result->getFirstFailed(): ?array             // Get first failed operation
-
-// Checking results
-$result->hasSuccessful(): bool                 // Check if any succeeded
-$result->hasFailed(): bool                     // Check if any failed
-$result->isComplete(): bool                    // Check if all succeeded
-$result->isEmpty(): bool                       // Check if no results
-
-// Array access and iteration
-$result[0]                                     // Access by index
-count($result)                                 // Countable
-foreach ($result as $item)                     // Iterable
-```
-
-## 🧪 Testing
-
-```bash
-composer test
-```
-
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
-## Credits
-
--   [IQBAL HASAN](https://github.com/devwizardhq)
--   [All Contributors](../../contributors)
-
-## License
-
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
-
-## Localization
-
-Laravel Filex provides comprehensive localization support with built-in translations for multiple languages.
-
-### Publishing Language Files
-
-To customize the language files, publish them to your application:
-
-```bash
-php artisan vendor:publish --provider="DevWizard\Filex\FilexServiceProvider" --tag="filex-lang"
-```
-
-This will publish the language files to `resources/lang/vendor/filex/`.
-
-### Supported Languages
-
--   🇺🇸 **English** (en) - Default
--   🇧🇩 **Bengali** (bn) - Complete
--   🇪🇸 **Spanish** (es) - Complete
--   🇫🇷 **French** (fr) - Complete
--   🇩🇪 **German** (de) - Complete
--   �� **Arabic** (ar) - Complete
--   �� **Chinese** (zh) - Complete
--   🇷🇺 **Russian** (ru) - Complete
--   🇮🇳 **Hindi** (hi) - Complete
--   🇧🇷 **Portuguese** (pt) - Complete
--   🇯🇵 **Japanese** (ja) - Complete
--   🇮🇹 **Italian** (it) - Complete
-
-### Customizing Messages
-
-After publishing, you can customize any message in the language files:
-
-```php
-// resources/lang/vendor/filex/en/translations.php - UI and general messages
-return [
-    'ui' => [
-        'drop_files' => 'Drop your files here or click to browse',
-        'file_too_big' => 'File is too large (:filesize MB). Maximum size: :maxFilesize MB.',
-        'invalid_file_type' => 'This file type is not allowed.',
-        // ... more UI messages
-    ],
-    'errors' => [
-        'file_not_found' => 'File not found',
-        'validation_failed' => 'File validation failed',
-        // ... more error messages
-    ],
-];
-
-// resources/lang/vendor/filex/en/validation.php - Validation rule messages
-return [
-    'filex_mimes' => 'The :attribute must be a file of type: :values.',
-    'filex_max' => 'The :attribute may not be greater than :max kilobytes.',
-    'filex_min' => 'The :attribute must be at least :min kilobytes.',
-    'filex_image' => 'The :attribute must be an image.',
-    // ... more validation messages
-];
-```
-
-### Creating New Language Files
-
-To add support for a new language:
-
-1. Create a new language directory: `resources/lang/vendor/filex/[locale]/`
-2. Copy the English language files:
-    ```bash
-    cp resources/lang/vendor/filex/en/translations.php resources/lang/vendor/filex/[locale]/translations.php
-    cp resources/lang/vendor/filex/en/validation.php resources/lang/vendor/filex/[locale]/validation.php
-    ```
-3. Translate all the messages in both files
-4. Set your application locale in `config/app.php` or dynamically
-
-### Language Keys Reference
-
-The language files contain the following key groups:
-
--   **`translations.php`** - UI messages, upload error messages, help text, and general error messages
--   **`validation.php`** - Validation rule messages for all Filex validation rules (filex_mimes, filex_max, etc.)
-
-### Dynamic Language Switching
-
-You can switch languages dynamically in your application:
-
-```php
-// In your controller or middleware
-App::setLocale('bn'); // Switch to Bengali
-
-// Or use helper
-app()->setLocale('bn');
-```
-
-### Usage with Blade Components
-
-The file upload component automatically uses the correct language based on your application's locale:
-
-```blade
-{{-- Messages will be displayed in the current locale --}}
-<x-filex-uploader name="files" />
 ```
 
 ### Contributing Translations

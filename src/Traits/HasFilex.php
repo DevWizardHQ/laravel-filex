@@ -20,9 +20,10 @@ trait HasFilex
      * @param  string  $fieldName  Form field name containing temp path
      * @param  string  $directory  Target directory (e.g., 'uploads/avatars')
      * @param  string|null  $disk  Storage disk (defaults to config)
+     * @param  string|null  $visibility  File visibility ('public' or 'private')
      * @return string|null Final file path or null if no file
      */
-    protected function moveFile(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
+    protected function moveFile(Request $request, string $fieldName, string $directory, ?string $disk = null, ?string $visibility = null): ?string
     {
         $tempPath = $request->input($fieldName);
 
@@ -30,7 +31,7 @@ trait HasFilex
             return null;
         }
 
-        $result = Filex::moveFile($tempPath, $directory, $disk);
+        $result = Filex::moveFile($tempPath, $directory, $disk, $visibility);
 
         return $result->getPath();
     }
@@ -41,9 +42,10 @@ trait HasFilex
      * @param  string  $fieldName  Form field name containing array of temp paths
      * @param  string  $directory  Target directory
      * @param  string|null  $disk  Storage disk
+     * @param  string|null  $visibility  File visibility ('public' or 'private')
      * @return array Array of final file paths
      */
-    protected function moveFiles(Request $request, string $fieldName, string $directory, ?string $disk = null): array
+    protected function moveFiles(Request $request, string $fieldName, string $directory, ?string $disk = null, ?string $visibility = null): array
     {
         $tempPaths = $request->input($fieldName, []);
 
@@ -51,7 +53,7 @@ trait HasFilex
             return [];
         }
 
-        $result = Filex::moveFiles($tempPaths, $directory, $disk);
+        $result = Filex::moveFiles($tempPaths, $directory, $disk, $visibility);
 
         return $result->getPaths();
     }
@@ -77,7 +79,7 @@ trait HasFilex
     {
         return [
             $fieldName => $required ? ['required', 'array'] : ['nullable', 'array'],
-            $fieldName.'.*' => ['string', 'starts_with:temp/'],
+            $fieldName . '.*' => ['string', 'starts_with:temp/'],
         ];
     }
 
@@ -97,5 +99,57 @@ trait HasFilex
         }
 
         return $cleaned;
+    }
+
+    /**
+     * Move file with public visibility
+     *
+     * @param  string  $fieldName  Form field name containing temp path
+     * @param  string  $directory  Target directory
+     * @param  string|null  $disk  Storage disk
+     * @return string|null Final file path or null if no file
+     */
+    protected function moveFilePublic(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
+    {
+        return $this->moveFile($request, $fieldName, $directory, $disk, 'public');
+    }
+
+    /**
+     * Move file with private visibility
+     *
+     * @param  string  $fieldName  Form field name containing temp path
+     * @param  string  $directory  Target directory
+     * @param  string|null  $disk  Storage disk
+     * @return string|null Final file path or null if no file
+     */
+    protected function moveFilePrivate(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
+    {
+        return $this->moveFile($request, $fieldName, $directory, $disk, 'private');
+    }
+
+    /**
+     * Move files with public visibility
+     *
+     * @param  string  $fieldName  Form field name containing array of temp paths
+     * @param  string  $directory  Target directory
+     * @param  string|null  $disk  Storage disk
+     * @return array Array of final file paths
+     */
+    protected function moveFilesPublic(Request $request, string $fieldName, string $directory, ?string $disk = null): array
+    {
+        return $this->moveFiles($request, $fieldName, $directory, $disk, 'public');
+    }
+
+    /**
+     * Move files with private visibility
+     *
+     * @param  string  $fieldName  Form field name containing array of temp paths
+     * @param  string  $directory  Target directory
+     * @param  string|null  $disk  Storage disk
+     * @return array Array of final file paths
+     */
+    protected function moveFilesPrivate(Request $request, string $fieldName, string $directory, ?string $disk = null): array
+    {
+        return $this->moveFiles($request, $fieldName, $directory, $disk, 'private');
     }
 }
