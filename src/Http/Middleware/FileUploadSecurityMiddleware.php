@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace DevWizard\Filex\Http\Middleware;
 
 use Closure;
+use DevWizard\Filex\Support\ConfigHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -47,7 +48,7 @@ class FileUploadSecurityMiddleware
                     'success' => false,
                     'message' => __('filex::translations.rate_limit_exceeded'),
                     'error_type' => 'rate_limit_error',
-                    'retry_after' => $this->getRetryAfter()
+                    'retry_after' => $this->getRetryAfter($request)
                 ], 429);
             }
 
@@ -105,7 +106,7 @@ class FileUploadSecurityMiddleware
         }
 
         // Validate request size
-        $maxSize = config('filex.max_file_size', 10) * 1024 * 1024;
+        $maxSize = ConfigHelper::getMaxFileSize();
         if ($request->header('Content-Length') > $maxSize) {
             return false;
         }
@@ -149,8 +150,19 @@ class FileUploadSecurityMiddleware
     private function getRateLimitKey(Request $request): string
     {
         $ip = $request->ip();
-        $session = $request->session()->getId();
-        return 'filex_upload:' . md5($ip . $session);
+
+        // Try to get session ID, but fall back to IP only if session is not available
+        $sessionId = '';
+        try {
+            if ($request->hasSession() && $request->session()) {
+                $sessionId = $request->session()->getId();
+            }
+        } catch (\Exception $e) {
+            // Session not available, use IP only
+            $sessionId = '';
+        }
+
+        return 'filex_upload:' . md5($ip . $sessionId);
     }
 
     /**
@@ -159,7 +171,7 @@ class FileUploadSecurityMiddleware
     private function getMaxAttempts(): int
     {
         $load = sys_getloadavg()[0];
-        $baseLimit = config('filex.rate_limit.max_attempts', 60);
+        $baseLimit = ConfigHelper::getRateLimitMaxAttempts();
 
         if ($load > 2.0) {
             return (int)($baseLimit * 0.5); // 50% reduction
@@ -175,15 +187,15 @@ class FileUploadSecurityMiddleware
      */
     private function getDecayMinutes(): int
     {
-        return config('filex.rate_limit.decay_minutes', 1);
+        return ConfigHelper::getRateLimitDecayMinutes();
     }
 
     /**
      * Get retry after timestamp
      */
-    private function getRetryAfter(): int
+    private function getRetryAfter(Request $request): int
     {
-        $key = $this->getRateLimitKey(request());
+        $key = $this->getRateLimitKey($request);
         return RateLimiter::availableIn($key);
     }
 
@@ -289,8 +301,13 @@ class FileUploadSecurityMiddleware
      */
     private function detectSuspiciousPatterns(Request $request): bool
     {
+        // Skip detection if disabled in config
+        if (!ConfigHelper::isSuspiciousDetectionEnabled()) {
+            return false;
+        }
+
         // Check for suspicious query parameters
-        $suspiciousParams = ['eval', 'exec', 'system', 'shell'];
+        $suspiciousParams = ConfigHelper::getSuspiciousQueryParams();
         foreach ($suspiciousParams as $param) {
             if ($request->query($param) !== null) {
                 return true;
@@ -301,7 +318,9 @@ class FileUploadSecurityMiddleware
         if ($request->hasFile('file')) {
             $file = $request->file('file');
             $extension = strtolower($file->getClientOriginalExtension());
-            $suspiciousExtensions = ['php', 'phtml', 'php3', 'php4', 'php5', 'phps'];
+
+            // Get suspicious extensions from config
+            $suspiciousExtensions = ConfigHelper::getSuspiciousExtensions();
 
             if (in_array($extension, $suspiciousExtensions)) {
                 return true;
@@ -310,22 +329,13 @@ class FileUploadSecurityMiddleware
 
         // Check for suspicious patterns in headers
         $headers = $request->headers->all();
-        $suspiciousPatterns = [
-            'eval\(',
-            'exec\(',
-            'system\(',
-            'shell_exec',
-            '\$_GET',
-            '\$_POST',
-            '\$_REQUEST',
-            '<script',
-            'javascript:',
-            'data:text/html'
-        ];
+        $suspiciousPatterns = ConfigHelper::getSuspiciousHeaderPatterns();
 
         foreach ($headers as $header) {
             foreach ($suspiciousPatterns as $pattern) {
-                if (preg_match('/' . $pattern . '/i', implode(' ', $header))) {
+                // Use preg_quote to safely escape the pattern
+                $escapedPattern = preg_quote($pattern, '/');
+                if (preg_match('/' . $escapedPattern . '/i', implode(' ', $header))) {
                     return true;
                 }
             }

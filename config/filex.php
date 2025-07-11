@@ -350,6 +350,117 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | Suspicious Query Parameters
+        |--------------------------------------------------------------------------
+        |
+        | Query parameters that should trigger security alerts.
+        |
+        */
+        'suspicious_query_params' => [
+            'eval',
+            'exec',
+            'system',
+            'shell',
+            'cmd',
+            'passthru',
+            'shell_exec',
+            'base64_decode',
+            'file_get_contents',
+            'file_put_contents',
+            'fopen',
+            'fwrite',
+            'include',
+            'require',
+            'include_once',
+            'require_once'
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suspicious File Extensions
+        |--------------------------------------------------------------------------
+        |
+        | File extensions that should be blocked or flagged as suspicious.
+        |
+        */
+        'suspicious_extensions' => [
+            'php',
+            'phtml',
+            'php3',
+            'php4',
+            'php5',
+            'phps',
+            'pht',
+            'asp',
+            'aspx',
+            'jsp',
+            'jspx',
+            'cfm',
+            'cfml',
+            'exe',
+            'bat',
+            'cmd',
+            'scr',
+            'com',
+            'pif',
+            'vbs',
+            'vb',
+            'js',
+            'jar',
+            'war',
+            'ear',
+            'sh',
+            'bash',
+            'zsh',
+            'csh',
+            'ksh',
+            'htaccess',
+            'htpasswd',
+            'ini',
+            'conf'
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Suspicious Header Patterns
+        |--------------------------------------------------------------------------
+        |
+        | Patterns in HTTP headers that should trigger security alerts.
+        | Note: These are treated as literal strings, not regex patterns.
+        |
+        */
+        'suspicious_header_patterns' => [
+            'eval(',
+            'exec(',
+            'system(',
+            'shell_exec',
+            'passthru(',
+            'base64_decode',
+            '$_GET',
+            '$_POST',
+            '$_REQUEST',
+            '$_SERVER',
+            '$_COOKIE',
+            '<script',
+            '</script>',
+            'javascript:',
+            'vbscript:',
+            'data:text/html',
+            'data:application/',
+            'onload=',
+            'onerror=',
+            'onclick=',
+            'onmouseover=',
+            'document.cookie',
+            'document.write',
+            'window.location',
+            'alert(',
+            'confirm(',
+            'prompt('
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
         | Suspicious Filename Patterns
         |--------------------------------------------------------------------------
         |
@@ -359,20 +470,20 @@ return [
         'suspicious_filename_patterns' => [
             // Double extensions
             '/\.[a-z]{2,4}\.[a-z]{2,4}$/i',
-            
+
             // Server-side scripts
             '/\.(php|phtml|php3|php4|php5)$/i',
             '/\.(asp|aspx|jsp|cfm)$/i',
-            
+
             // Executable files
             '/\.(exe|bat|cmd|scr|com|pif)$/i',
-            
+
             // System files
             '/\.(htaccess|htpasswd)$/i',
-            
+
             // Shell scripts
             '/\.(sh|bash|zsh|csh)$/i',
-            
+
             // Other potentially dangerous files
             '/\.(vbs|js|jar|war|ear)$/i',
         ],
@@ -389,20 +500,20 @@ return [
             // PHP code injection
             '/<\?php/i',
             '/<\?=/i',
-            
+
             // ASP/JSP tags
             '/<%[^>]*%>/i',
-            
+
             // JavaScript execution
             '/javascript:/i',
             '/vbscript:/i',
-            
+
             // Event handlers
             '/onload\s*=/i',
             '/onerror\s*=/i',
             '/onclick\s*=/i',
             '/onmouseover\s*=/i',
-            
+
             // Dangerous functions
             '/eval\s*\(/i',
             '/exec\s*\(/i',
@@ -414,14 +525,14 @@ return [
             '/file_put_contents\s*\(/i',
             '/fopen\s*\(/i',
             '/fwrite\s*\(/i',
-            
+
             // SQL injection attempts
             '/union\s+select/i',
             '/drop\s+table/i',
             '/insert\s+into/i',
             '/update\s+set/i',
             '/delete\s+from/i',
-            
+
             // Command injection
             '/\$\(.*\)/i',
             '/`.*`/i',
@@ -459,9 +570,30 @@ return [
         |
         */
         'text_extensions_to_scan' => [
-            'txt', 'html', 'htm', 'css', 'js', 'json', 'xml', 'csv',
-            'php', 'asp', 'jsp', 'cfm', 'py', 'rb', 'pl', 'sh',
-            'sql', 'conf', 'ini', 'cfg', 'log', 'md', 'yml', 'yaml'
+            'txt',
+            'html',
+            'htm',
+            'css',
+            'js',
+            'json',
+            'xml',
+            'csv',
+            'php',
+            'asp',
+            'jsp',
+            'cfm',
+            'py',
+            'rb',
+            'pl',
+            'sh',
+            'sql',
+            'conf',
+            'ini',
+            'cfg',
+            'log',
+            'md',
+            'yml',
+            'yaml'
         ],
 
         /*

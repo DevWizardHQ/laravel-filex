@@ -48,6 +48,44 @@ class FilexController extends Controller
     }
 
     /**
+     * Apply performance settings for upload operations
+     */
+    protected function applyPerformanceSettings(): void
+    {
+        if (self::$performanceApplied) {
+            return;
+        }
+
+        // Set memory limit if configured and higher than current
+        $memoryLimit = ConfigHelper::get('performance.memory_limit');
+        if ($memoryLimit && $memoryLimit !== '-1') {
+            $currentLimit = $this->getMemoryLimit();
+            $newLimit = ByteHelper::convertToBytes($memoryLimit);
+
+            // Only apply if new limit is higher than current limit
+            if ($newLimit > $currentLimit) {
+                ini_set('memory_limit', $memoryLimit);
+            }
+        }
+
+        // Set time limit if configured
+        $timeLimit = ConfigHelper::get('performance.time_limit');
+        if ($timeLimit) {
+            set_time_limit((int)$timeLimit);
+        }
+
+        // Optimize for file uploads
+        if (function_exists('opcache_reset')) {
+            opcache_reset();
+        }
+
+        // Trigger garbage collection
+        gc_collect_cycles();
+
+        self::$performanceApplied = true;
+    }
+
+    /**
      * Get the temporary storage disk with optimized caching
      */
     protected function getTempDisk()

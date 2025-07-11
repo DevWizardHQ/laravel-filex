@@ -78,4 +78,52 @@ class ConfigHelper
     {
         return self::get('cleanup.schedule', 'daily');
     }
+
+    /**
+     * Check if suspicious detection is enabled
+     */
+    public static function isSuspiciousDetectionEnabled(): bool
+    {
+        return self::get('security.suspicious_detection.enabled', true);
+    }
+
+    /**
+     * Get suspicious query parameters
+     */
+    public static function getSuspiciousQueryParams(): array
+    {
+        return self::get('security.suspicious_query_params', []);
+    }
+
+    /**
+     * Get suspicious file extensions
+     */
+    public static function getSuspiciousExtensions(): array
+    {
+        return self::get('security.suspicious_extensions', []);
+    }
+
+    /**
+     * Get suspicious header patterns
+     */
+    public static function getSuspiciousHeaderPatterns(): array
+    {
+        return self::get('security.suspicious_header_patterns', []);
+    }
+
+    /**
+     * Get rate limit max attempts
+     */
+    public static function getRateLimitMaxAttempts(): int
+    {
+        return self::get('rate_limit.max_attempts', 60);
+    }
+
+    /**
+     * Get rate limit decay minutes
+     */
+    public static function getRateLimitDecayMinutes(): int
+    {
+        return self::get('rate_limit.decay_minutes', 1);
+    }
 }

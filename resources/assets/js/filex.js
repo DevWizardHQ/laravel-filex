@@ -18,45 +18,52 @@
      * Enhanced error notification system
      */
     function showErrorMessage(message, componentId = null, timeout = 5000) {
-        showNotification(message, 'error', componentId, timeout);
+        showNotification(message, "error", componentId, timeout);
     }
 
     /**
      * Show success message
      */
     function showSuccessMessage(message, componentId = null, timeout = 3000) {
-        showNotification(message, 'success', componentId, timeout);
+        showNotification(message, "success", componentId, timeout);
     }
 
     /**
      * Show warning message
      */
     function showWarningMessage(message, componentId = null, timeout = 4000) {
-        showNotification(message, 'warning', componentId, timeout);
+        showNotification(message, "warning", componentId, timeout);
     }
 
     /**
      * Show info message
      */
     function showInfoMessage(message, componentId = null, timeout = 3000) {
-        showNotification(message, 'info', componentId, timeout);
+        showNotification(message, "info", componentId, timeout);
     }
 
     /**
      * Generic notification system
      */
-    function showNotification(message, type = 'info', componentId = null, timeout = 3000) {
+    function showNotification(
+        message,
+        type = "info",
+        componentId = null,
+        timeout = 3000
+    ) {
         // Create or get notification container
-        let container = document.getElementById('filex-notifications-container');
+        let container = document.getElementById(
+            "filex-notifications-container"
+        );
         if (!container) {
-            container = document.createElement('div');
-            container.id = 'filex-notifications-container';
-            container.className = 'filex-notifications-container';
+            container = document.createElement("div");
+            container.id = "filex-notifications-container";
+            container.className = "filex-notifications-container";
             document.body.appendChild(container);
         }
 
         // Create notification element
-        const notification = document.createElement('div');
+        const notification = document.createElement("div");
         notification.className = `filex-notification filex-notification--${type}`;
 
         // Get appropriate icon for the notification type
@@ -69,27 +76,37 @@
                 <div class="filex-notification__message">${message}</div>
                 <button class="filex-notification__close" type="button" aria-label="Close notification">×</button>
             </div>
-            ${timeout > 0 ? '<div class="filex-notification__progress"></div>' : ''}
+            ${
+                timeout > 0
+                    ? '<div class="filex-notification__progress"></div>'
+                    : ""
+            }
         `;
 
         // Add close functionality
-        const closeBtn = notification.querySelector('.filex-notification__close');
-        closeBtn.addEventListener('click', () => removeNotification(notification));
+        const closeBtn = notification.querySelector(
+            ".filex-notification__close"
+        );
+        closeBtn.addEventListener("click", () =>
+            removeNotification(notification)
+        );
 
         // Add to container
         container.appendChild(notification);
 
         // Auto-remove with progress bar animation
         if (timeout > 0) {
-            const progressBar = notification.querySelector('.filex-notification__progress');
+            const progressBar = notification.querySelector(
+                ".filex-notification__progress"
+            );
             if (progressBar) {
                 // Animate progress bar
-                progressBar.style.width = '100%';
+                progressBar.style.width = "100%";
                 progressBar.style.transition = `width ${timeout}ms linear`;
-                
+
                 // Start animation after a brief delay
                 setTimeout(() => {
-                    progressBar.style.width = '0%';
+                    progressBar.style.width = "0%";
                 }, 10);
             }
 
@@ -101,7 +118,7 @@
         }
 
         // Update component-specific error if componentId provided
-        if (componentId && type === 'error') {
+        if (componentId && type === "error") {
             updateComponentStatus(componentId, message);
         }
 
@@ -113,8 +130,8 @@
      */
     function removeNotification(notification) {
         if (!notification || !notification.parentNode) return;
-        
-        notification.classList.add('filex-notification--sliding-out');
+
+        notification.classList.add("filex-notification--sliding-out");
         setTimeout(() => {
             if (notification.parentNode) {
                 notification.remove();
@@ -141,9 +158,9 @@
             info: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                 <circle cx="12" cy="12" r="10"/>
                 <path fill="white" d="M12 8v8M12 16h.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>`
+            </svg>`,
         };
-        
+
         return icons[type] || icons.info;
     }
 
@@ -151,14 +168,14 @@
      * Update component-specific status
      */
     function updateComponentStatus(componentId, message) {
-        const statusElement = document.getElementById(componentId + '-status');
+        const statusElement = document.getElementById(componentId + "-status");
         if (statusElement) {
-            const errorText = statusElement.querySelector('.error-text');
-            const errorMessage = statusElement.querySelector('.error-message');
+            const errorText = statusElement.querySelector(".error-text");
+            const errorMessage = statusElement.querySelector(".error-message");
             if (errorText && errorMessage) {
-                errorText.style.display = 'inline';
+                errorText.style.display = "inline";
                 errorMessage.textContent = message;
-                statusElement.style.display = 'block';
+                statusElement.style.display = "block";
             }
         }
     }
@@ -168,56 +185,70 @@
      */
     function makeAjaxRequest(url, options = {}) {
         const defaultOptions = {
-            method: 'GET',
+            method: "GET",
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': getCSRFToken(),
-                'X-Requested-With': 'XMLHttpRequest'
+                "Content-Type": "application/json",
+                "X-CSRF-TOKEN": getCSRFToken(),
+                "X-Requested-With": "XMLHttpRequest",
             },
-            timeout: 30000
+            timeout: 30000,
         };
 
         const finalOptions = { ...defaultOptions, ...options };
-        
+
         // Add timeout handling
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), finalOptions.timeout);
+        const timeoutId = setTimeout(
+            () => controller.abort(),
+            finalOptions.timeout
+        );
         finalOptions.signal = controller.signal;
 
         return fetch(url, finalOptions)
-            .then(response => {
+            .then((response) => {
                 clearTimeout(timeoutId);
-                
+
                 // Handle different response types
-                const contentType = response.headers.get('content-type');
-                
+                const contentType = response.headers.get("content-type");
+
                 if (!response.ok) {
                     // Try to parse error message from response
-                    if (contentType && contentType.includes('application/json')) {
-                        return response.json().then(data => {
-                            throw new Error(data.message || data.error || `Server error: ${response.status}`);
+                    if (
+                        contentType &&
+                        contentType.includes("application/json")
+                    ) {
+                        return response.json().then((data) => {
+                            throw new Error(
+                                data.message ||
+                                    data.error ||
+                                    `Server error: ${response.status}`
+                            );
                         });
                     } else {
-                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        throw new Error(
+                            `HTTP ${response.status}: ${response.statusText}`
+                        );
                     }
                 }
 
                 // Parse successful response
-                if (contentType && contentType.includes('application/json')) {
+                if (contentType && contentType.includes("application/json")) {
                     return response.json();
                 } else {
                     return response.text();
                 }
             })
-            .catch(error => {
+            .catch((error) => {
                 clearTimeout(timeoutId);
-                
-                if (error.name === 'AbortError') {
-                    throw new Error('Request timed out. Please try again.');
+
+                if (error.name === "AbortError") {
+                    throw new Error("Request timed out. Please try again.");
                 } else if (error.message) {
                     throw error;
                 } else {
-                    throw new Error('Network error. Please check your connection and try again.');
+                    throw new Error(
+                        "Network error. Please check your connection and try again."
+                    );
                 }
             });
     }
@@ -414,11 +445,12 @@
                 dictDefaultMessage:
                     config.messages.dictDefaultMessage ||
                     "Drop files here or click to upload",
-                dictFileTooBig:
-                    (config.messages.dictFileTooBig ||
-                    "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
-                    .replace(':maxFilesize', config.maxSize)
-                    .replace(':maxfilesize', config.maxSize),
+                dictFileTooBig: (
+                    config.messages.dictFileTooBig ||
+                    "File is too big (:filesize MB). Max filesize: :maxFilesize MB."
+                )
+                    .replace(":maxFilesize", config.maxSize)
+                    .replace(":maxfilesize", config.maxSize),
                 dictInvalidFileType:
                     config.messages.dictInvalidFileType ||
                     "You cannot upload files of this type.",
@@ -464,12 +496,17 @@
 
                         // Legacy validation for backward compatibility
                         if (file.size > config.maxSize * 1024 * 1024) {
-                            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                            const message = (config.messages.dictFileTooBig || 
-                                "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
-                                .replace(':filesize', fileSizeMB)
-                                .replace(':maxFilesize', config.maxSize)
-                                .replace(':maxfilesize', config.maxSize);
+                            const fileSizeMB = (
+                                file.size /
+                                (1024 * 1024)
+                            ).toFixed(2);
+                            const message = (
+                                config.messages.dictFileTooBig ||
+                                "File is too big (:filesize MB). Max filesize: :maxFilesize MB."
+                            )
+                                .replace(":filesize", fileSizeMB)
+                                .replace(":maxFilesize", config.maxSize)
+                                .replace(":maxfilesize", config.maxSize);
                             errors.push(message);
                         }
 
@@ -567,13 +604,20 @@
                                 if (ruleValue) {
                                     const maxSizeKB = parseInt(ruleValue);
                                     if (file.size > maxSizeKB * 1024) {
-                                        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
-                                        const maxSizeMB = (maxSizeKB / 1024).toFixed(2);
-                                        const message = (config.messages.dictFileTooBig || 
-                                            "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
-                                            .replace(':filesize', fileSizeMB)
-                                            .replace(':maxFilesize', maxSizeMB)
-                                            .replace(':maxfilesize', maxSizeMB);
+                                        const fileSizeMB = (
+                                            file.size /
+                                            (1024 * 1024)
+                                        ).toFixed(2);
+                                        const maxSizeMB = (
+                                            maxSizeKB / 1024
+                                        ).toFixed(2);
+                                        const message = (
+                                            config.messages.dictFileTooBig ||
+                                            "File is too big (:filesize MB). Max filesize: :maxFilesize MB."
+                                        )
+                                            .replace(":filesize", fileSizeMB)
+                                            .replace(":maxFilesize", maxSizeMB)
+                                            .replace(":maxfilesize", maxSizeMB);
                                         return message;
                                     }
                                 }
@@ -911,8 +955,8 @@
                                         "__FILEPATH__",
                                         encodeURIComponent(filePath)
                                     );
-                                
-                                makeAjaxRequest(fileInfoUrl, { method: 'GET' })
+
+                                makeAjaxRequest(fileInfoUrl, { method: "GET" })
                                     .then((data) => {
                                         if (data.success && data.size) {
                                             mockFile.size = data.size;
@@ -932,7 +976,10 @@
                                         }
                                     })
                                     .catch((error) => {
-                                        console.warn('Failed to fetch file info for existing file:', error.message);
+                                        console.warn(
+                                            "Failed to fetch file info for existing file:",
+                                            error.message
+                                        );
                                         // Fallback to estimated size based on file type
                                         mockFile.size =
                                             getEstimatedFileSize(extension);
@@ -1079,7 +1126,13 @@
                             ) {
                                 // Show validation error notification
                                 if (config.showErrorNotifications !== false) {
-                                    showErrorMessage(`Validation failed for ${file.name}: ${validationErrors.join(', ')}`, componentId, config.errorTimeout);
+                                    showErrorMessage(
+                                        `Validation failed for ${
+                                            file.name
+                                        }: ${validationErrors.join(", ")}`,
+                                        componentId,
+                                        config.errorTimeout
+                                    );
                                 }
 
                                 // Apply error state
@@ -1094,7 +1147,7 @@
                                     if (errorElement) {
                                         errorElement.textContent =
                                             validationErrors.join(", ");
-                                        errorElement.style.display = 'block';
+                                        errorElement.style.display = "block";
                                     }
 
                                     // Show error mark
@@ -1121,12 +1174,16 @@
                                 }
 
                                 // Add to failed files list for validation errors
-                                if (!failedFiles.find((f) => f.name === file.name)) {
+                                if (
+                                    !failedFiles.find(
+                                        (f) => f.name === file.name
+                                    )
+                                ) {
                                     failedFiles.push({
                                         name: file.name,
-                                        error: validationErrors.join(', '),
+                                        error: validationErrors.join(", "),
                                         file: file,
-                                        type: 'validation'
+                                        type: "validation",
                                     });
                                 }
 
@@ -1138,17 +1195,25 @@
                                 // Validation passed - ensure no error states are showing
                                 if (file.previewElement) {
                                     // Remove any error classes
-                                    file.previewElement.classList.remove("dz-error");
-                                    
+                                    file.previewElement.classList.remove(
+                                        "dz-error"
+                                    );
+
                                     // Hide error message
-                                    const errorElement = file.previewElement.querySelector(".dz-error-message");
+                                    const errorElement =
+                                        file.previewElement.querySelector(
+                                            ".dz-error-message"
+                                        );
                                     if (errorElement) {
-                                        errorElement.style.display = 'none';
-                                        errorElement.textContent = '';
+                                        errorElement.style.display = "none";
+                                        errorElement.textContent = "";
                                     }
-                                    
+
                                     // Hide error mark
-                                    const errorMark = file.previewElement.querySelector(".dz-error-mark");
+                                    const errorMark =
+                                        file.previewElement.querySelector(
+                                            ".dz-error-mark"
+                                        );
                                     if (errorMark) {
                                         errorMark.style.display = "none";
                                         errorMark.style.visibility = "hidden";
@@ -1210,7 +1275,11 @@
 
                             // Show success notification if enabled
                             if (config.showSuccessMessages) {
-                                showSuccessMessage(`${file.name} uploaded successfully`, componentId, config.successTimeout);
+                                showSuccessMessage(
+                                    `${file.name} uploaded successfully`,
+                                    componentId,
+                                    config.successTimeout
+                                );
                             }
 
                             // Mark file as successfully uploaded
@@ -1325,32 +1394,42 @@
 
                         // Parse error message from different sources
                         let finalErrorMessage = errorMessage;
-                        
-                        if (typeof errorMessage === 'object') {
+
+                        if (typeof errorMessage === "object") {
                             if (errorMessage.message) {
                                 finalErrorMessage = errorMessage.message;
                             } else if (errorMessage.error) {
                                 finalErrorMessage = errorMessage.error;
                             } else {
-                                finalErrorMessage = 'Upload failed';
+                                finalErrorMessage = "Upload failed";
                             }
-                        } else if (typeof errorMessage === 'string') {
+                        } else if (typeof errorMessage === "string") {
                             // Try to parse JSON error messages
                             try {
                                 const parsed = JSON.parse(errorMessage);
-                                finalErrorMessage = parsed.message || parsed.error || errorMessage;
+                                finalErrorMessage =
+                                    parsed.message ||
+                                    parsed.error ||
+                                    errorMessage;
                             } catch (e) {
                                 finalErrorMessage = errorMessage;
                             }
                         }
 
                         // Handle Dropzone.js default error message with statusCode placeholder
-                        if (typeof finalErrorMessage === 'string' && finalErrorMessage.includes(':statusCode')) {
+                        if (
+                            typeof finalErrorMessage === "string" &&
+                            finalErrorMessage.includes(":statusCode")
+                        ) {
                             if (xhr && xhr.status) {
-                                finalErrorMessage = finalErrorMessage.replace(':statusCode', xhr.status);
+                                finalErrorMessage = finalErrorMessage.replace(
+                                    ":statusCode",
+                                    xhr.status
+                                );
                             } else {
                                 // If no status code available, provide a generic message
-                                finalErrorMessage = 'Server error occurred during upload';
+                                finalErrorMessage =
+                                    "Server error occurred during upload";
                             }
                         }
 
@@ -1358,40 +1437,65 @@
                         if (xhr && xhr.status) {
                             switch (xhr.status) {
                                 case 413:
-                                    finalErrorMessage = 'File is too large for upload';
+                                    finalErrorMessage =
+                                        "File is too large for upload";
                                     break;
                                 case 422:
-                                    finalErrorMessage = finalErrorMessage.includes('Server responded with') ? 'File validation failed' : finalErrorMessage;
+                                    finalErrorMessage =
+                                        finalErrorMessage.includes(
+                                            "Server responded with"
+                                        )
+                                            ? "File validation failed"
+                                            : finalErrorMessage;
                                     break;
                                 case 429:
-                                    finalErrorMessage = 'Too many upload attempts. Please wait and try again.';
+                                    finalErrorMessage =
+                                        "Too many upload attempts. Please wait and try again.";
                                     break;
                                 case 500:
-                                    finalErrorMessage = 'Server error during upload. Please try again.';
+                                    finalErrorMessage =
+                                        "Server error during upload. Please try again.";
                                     break;
                                 case 0:
-                                    finalErrorMessage = 'Network error. Please check your connection.';
+                                    finalErrorMessage =
+                                        "Network error. Please check your connection.";
                                     break;
                                 default:
                                     // For other status codes, if still using generic template, improve it
-                                    if (finalErrorMessage.includes('Server responded with') && finalErrorMessage.includes('code')) {
+                                    if (
+                                        finalErrorMessage.includes(
+                                            "Server responded with"
+                                        ) &&
+                                        finalErrorMessage.includes("code")
+                                    ) {
                                         finalErrorMessage = `Server error (${xhr.status}): Please try again`;
                                     }
                                     break;
                             }
-                        } else if (finalErrorMessage.includes(':statusCode')) {
+                        } else if (finalErrorMessage.includes(":statusCode")) {
                             // No xhr object available, replace with generic message
-                            finalErrorMessage = 'Server error occurred during upload';
+                            finalErrorMessage =
+                                "Server error occurred during upload";
                         }
 
                         // Show error notification only if enabled and not already shown by validation
-                        const isValidationError = finalErrorMessage.includes('File is too big') || 
-                                                 finalErrorMessage.includes('File too large') ||
-                                                 finalErrorMessage.includes('File type not allowed') ||
-                                                 finalErrorMessage.includes('validation failed');
-                        
-                        if (config.showErrorNotifications !== false && !isValidationError) {
-                            showErrorMessage(`Upload failed for ${file.name}: ${finalErrorMessage}`, componentId, config.errorTimeout);
+                        const isValidationError =
+                            finalErrorMessage.includes("File is too big") ||
+                            finalErrorMessage.includes("File too large") ||
+                            finalErrorMessage.includes(
+                                "File type not allowed"
+                            ) ||
+                            finalErrorMessage.includes("validation failed");
+
+                        if (
+                            config.showErrorNotifications !== false &&
+                            !isValidationError
+                        ) {
+                            showErrorMessage(
+                                `Upload failed for ${file.name}: ${finalErrorMessage}`,
+                                componentId,
+                                config.errorTimeout
+                            );
                         }
 
                         // Add to failed files list
@@ -1412,7 +1516,8 @@
                                 preview.querySelector(".dz-error-mark");
                             const successMark =
                                 preview.querySelector(".dz-success-mark");
-                            const errorElement = preview.querySelector(".dz-error-message");
+                            const errorElement =
+                                preview.querySelector(".dz-error-message");
 
                             // Clear success state and add error state
                             preview.classList.remove(
@@ -1424,7 +1529,7 @@
                             // Show detailed error in preview
                             if (errorElement) {
                                 errorElement.textContent = finalErrorMessage;
-                                errorElement.style.display = 'block';
+                                errorElement.style.display = "block";
                             }
 
                             // Show retry button
@@ -1493,25 +1598,50 @@
                                     );
 
                                 makeAjaxRequest(deleteUrl, {
-                                    method: "DELETE"
+                                    method: "DELETE",
                                 })
-                                .then(response => {
-                                    if (response.success) {
-                                        if (config.debug || config.showSuccessMessages) {
-                                            showSuccessMessage(`File ${file.name} deleted successfully`, componentId, config.successTimeout);
+                                    .then((response) => {
+                                        if (response.success) {
+                                            if (
+                                                config.debug ||
+                                                config.showSuccessMessages
+                                            ) {
+                                                showSuccessMessage(
+                                                    `File ${file.name} deleted successfully`,
+                                                    componentId,
+                                                    config.successTimeout
+                                                );
+                                            }
+                                        } else {
+                                            if (
+                                                config.showErrorNotifications !==
+                                                false
+                                            ) {
+                                                showErrorMessage(
+                                                    response.message ||
+                                                        "Failed to delete file from server",
+                                                    componentId,
+                                                    config.errorTimeout
+                                                );
+                                            }
                                         }
-                                    } else {
-                                        if (config.showErrorNotifications !== false) {
-                                            showErrorMessage(response.message || 'Failed to delete file from server', componentId, config.errorTimeout);
+                                    })
+                                    .catch((error) => {
+                                        console.error(
+                                            "Failed to delete temp file:",
+                                            error
+                                        );
+                                        if (
+                                            config.showErrorNotifications !==
+                                            false
+                                        ) {
+                                            showErrorMessage(
+                                                `Failed to delete ${file.name}: ${error.message}`,
+                                                componentId,
+                                                config.errorTimeout
+                                            );
                                         }
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error("Failed to delete temp file:", error);
-                                    if (config.showErrorNotifications !== false) {
-                                        showErrorMessage(`Failed to delete ${file.name}: ${error.message}`, componentId, config.errorTimeout);
-                                    }
-                                });
+                                    });
                             }
                         }
 
@@ -1529,9 +1659,13 @@
 
                     // Max files exceeded event
                     dz.on("maxfilesexceeded", function (file) {
-                        const maxFiles = config.maxFiles || 'unlimited';
+                        const maxFiles = config.maxFiles || "unlimited";
                         if (config.showErrorNotifications !== false) {
-                            showErrorMessage(`Maximum number of files exceeded. Limit: ${maxFiles}`, componentId, config.errorTimeout);
+                            showErrorMessage(
+                                `Maximum number of files exceeded. Limit: ${maxFiles}`,
+                                componentId,
+                                config.errorTimeout
+                            );
                         }
                         dz.removeFile(file);
                     });
@@ -1680,7 +1814,11 @@
                 const currentRetries = retryCount[file.name] || 0;
                 if (currentRetries >= 3) {
                     if (config.showErrorNotifications !== false) {
-                        showErrorMessage(`Maximum retry attempts reached for ${file.name}`, componentId, config.errorTimeout);
+                        showErrorMessage(
+                            `Maximum retry attempts reached for ${file.name}`,
+                            componentId,
+                            config.errorTimeout
+                        );
                     }
                     return;
                 }
@@ -1822,7 +1960,11 @@
                     if (isRequired && uploadedFiles.length === 0) {
                         e.preventDefault();
                         if (config.showErrorNotifications !== false) {
-                            showErrorMessage('Please upload at least one file before submitting', componentId, config.errorTimeout);
+                            showErrorMessage(
+                                "Please upload at least one file before submitting",
+                                componentId,
+                                config.errorTimeout
+                            );
                         }
                         return false;
                     }
@@ -1830,22 +1972,32 @@
                     if (activeUploads > 0) {
                         e.preventDefault();
                         if (config.showErrorNotifications !== false) {
-                            showErrorMessage('Please wait for all files to finish uploading before submitting', componentId, config.errorTimeout);
+                            showErrorMessage(
+                                "Please wait for all files to finish uploading before submitting",
+                                componentId,
+                                config.errorTimeout
+                            );
                         }
                         return false;
                     }
 
                     if (failedFiles.length > 0) {
                         e.preventDefault();
-                        const failedFileNames = failedFiles.map(f => f.name).join(', ');
+                        const failedFileNames = failedFiles
+                            .map((f) => f.name)
+                            .join(", ");
                         const confirmMessage = `Some files failed to upload (${failedFileNames}). Do you want to continue without them?`;
-                        
+
                         if (confirm(confirmMessage)) {
                             // Allow form submission
                             return true;
                         } else {
                             if (config.showErrorNotifications !== false) {
-                                showErrorMessage('Please fix upload errors or remove failed files before submitting', componentId, config.errorTimeout);
+                                showErrorMessage(
+                                    "Please fix upload errors or remove failed files before submitting",
+                                    componentId,
+                                    config.errorTimeout
+                                );
                             }
                             return false;
                         }
@@ -1920,7 +2072,7 @@
         initialize: initializeFilex,
         getFileIconSvg: getFileIconSvg,
         makeAjaxRequest: makeAjaxRequest,
-        
+
         // Notification system
         showError: showErrorMessage,
         showSuccess: showSuccessMessage,
@@ -1928,9 +2080,9 @@
         showInfo: showInfoMessage,
         showNotification: showNotification,
         removeNotification: removeNotification,
-        
+
         // Legacy aliases for backward compatibility
         showErrorMessage: showErrorMessage,
-        showSuccessMessage: showSuccessMessage
+        showSuccessMessage: showSuccessMessage,
     };
 })(window, document);
