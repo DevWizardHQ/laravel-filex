@@ -23,11 +23,6 @@ use Symfony\Component\HttpFoundation\Response;
 class FileUploadSecurityMiddleware
 {
     /**
-     * Static cache for security settings
-     */
-    private static array $securitySettings = [];
-
-    /**
      * Handle an incoming request.
      */
     public function handle(Request $request, Closure $next): Response
@@ -155,7 +150,7 @@ class FileUploadSecurityMiddleware
         // Try to get session ID, but fall back to IP only if session is not available
         $sessionId = '';
         try {
-            if ($request->hasSession() && $request->session()) {
+            if ($request->hasSession()) {
                 $sessionId = $request->session()->getId();
             }
         } catch (\Exception $e) {
@@ -163,7 +158,7 @@ class FileUploadSecurityMiddleware
             $sessionId = '';
         }
 
-        return 'filex_upload:'.md5($ip.$sessionId);
+        return 'filex_upload:' . md5($ip . $sessionId);
     }
 
     /**
@@ -337,7 +332,7 @@ class FileUploadSecurityMiddleware
             foreach ($suspiciousPatterns as $pattern) {
                 // Use preg_quote to safely escape the pattern
                 $escapedPattern = preg_quote($pattern, '/');
-                if (preg_match('/'.$escapedPattern.'/i', implode(' ', $header))) {
+                if (preg_match('/' . $escapedPattern . '/i', implode(' ', $header))) {
                     return true;
                 }
             }

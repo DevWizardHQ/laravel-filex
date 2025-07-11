@@ -60,7 +60,7 @@ class FilexService
     /**
      * Performance monitoring
      */
-    private static ?float $memoryHighWatermark = null;
+    private static ?int $memoryHighWatermark = null;
 
     /**
      * Generate a unique filename with better performance
@@ -77,7 +77,7 @@ class FilexService
         // Use faster slug generation for performance
         $slugName = $this->fastSlug($name);
 
-        return $slugName.'_'.$timestamp.'_'.$random.'.'.$extension;
+        return $slugName . '_' . $timestamp . '_' . $random . '.' . $extension;
     }
 
     /**
@@ -90,18 +90,6 @@ class FilexService
         $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
 
         return trim($slug, '-');
-    }
-
-    /**
-     * Cached configuration getter
-     */
-    private function getCachedConfig(string $key, $default = null)
-    {
-        if (! isset(self::$configCache[$key])) {
-            self::$configCache[$key] = config($key, $default);
-        }
-
-        return self::$configCache[$key];
     }
 
     /**
@@ -160,7 +148,7 @@ class FilexService
 
             return ['valid' => true, 'message' => __('filex::translations.validation')];
         } catch (\Exception $e) {
-            Log::error('File validation error: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('File validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
@@ -173,7 +161,7 @@ class FilexService
     {
         try {
             $tempDisk = $this->getTempDisk();
-            $metadataPath = $tempPath.'.meta';
+            $metadataPath = $tempPath . '.meta';
             $metadataContent = json_encode(array_merge($metadata, [
                 'created_at' => now()->toISOString(),
                 'expires_at' => now()->addHours(ConfigHelper::getTempExpiryHours())->toISOString(),
@@ -181,7 +169,7 @@ class FilexService
 
             return $tempDisk->put($metadataPath, $metadataContent);
         } catch (\Exception $e) {
-            Log::error('Failed to mark temp file: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('Failed to mark temp file: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return false;
         }
@@ -194,7 +182,7 @@ class FilexService
     {
         try {
             $tempDisk = $this->getTempDisk();
-            $metadataPath = $tempPath.'.meta';
+            $metadataPath = $tempPath . '.meta';
             if (! $tempDisk->exists($metadataPath)) {
                 return null;
             }
@@ -203,7 +191,7 @@ class FilexService
 
             return json_decode($content, true);
         } catch (\Exception $e) {
-            Log::error('Failed to get temp file metadata: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('Failed to get temp file metadata: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return null;
         }
@@ -222,14 +210,14 @@ class FilexService
                 $deleted = $tempDisk->delete($tempPath);
             }
 
-            $metadataPath = $tempPath.'.meta';
+            $metadataPath = $tempPath . '.meta';
             if ($tempDisk->exists($metadataPath)) {
                 $tempDisk->delete($metadataPath);
             }
 
             return $deleted;
         } catch (\Exception $e) {
-            Log::error('Failed to delete temp file: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('Failed to delete temp file: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return false;
         }
@@ -263,7 +251,7 @@ class FilexService
 
                 // Generate final filename
                 $finalFileName = $this->generateFileName($originalName);
-                $finalPath = trim($targetDirectory, '/').'/'.$finalFileName;
+                $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
 
                 // Ensure target directory exists
                 $targetDir = dirname($finalPath);
@@ -289,7 +277,7 @@ class FilexService
                     $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => 'Failed to move file'];
                 }
             } catch (\Exception $e) {
-                Log::error('Failed to move temp file: '.$e->getMessage(), ['temp_path' => $tempPath]);
+                Log::error('Failed to move temp file: ' . $e->getMessage(), ['temp_path' => $tempPath]);
                 $results[] = ['success' => false, 'tempPath' => $tempPath, 'message' => $e->getMessage()];
             }
         }
@@ -351,8 +339,8 @@ class FilexService
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Temp file cleanup error: '.$e->getMessage());
-            $errors[] = 'General cleanup error: '.$e->getMessage();
+            Log::error('Temp file cleanup error: ' . $e->getMessage());
+            $errors[] = 'General cleanup error: ' . $e->getMessage();
         }
 
         return [
@@ -425,7 +413,7 @@ class FilexService
             // Use regular validation for smaller files
             return $this->validateTemp($tempPath, $originalName);
         } catch (\Exception $e) {
-            Log::error('Large file validation error: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('Large file validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
@@ -524,7 +512,7 @@ class FilexService
 
             return $success !== false;
         } catch (\Exception $e) {
-            Log::error('Stream file copy failed: '.$e->getMessage(), [
+            Log::error('Stream file copy failed: ' . $e->getMessage(), [
                 'source' => $sourcePath,
                 'target' => $targetPath,
             ]);
@@ -533,7 +521,7 @@ class FilexService
             try {
                 return $targetDisk->put($targetPath, $sourceDisk->get($sourcePath));
             } catch (\Exception $fallbackError) {
-                Log::error('Fallback file copy also failed: '.$fallbackError->getMessage());
+                Log::error('Fallback file copy also failed: ' . $fallbackError->getMessage());
 
                 return false;
             }
@@ -552,7 +540,7 @@ class FilexService
             $filename = $this->generateFileName($file->getClientOriginalName());
         }
 
-        $path = trim($directory, '/').'/'.$filename;
+        $path = trim($directory, '/') . '/' . $filename;
 
         // Ensure directory exists
         $dir = dirname($path);
@@ -590,7 +578,7 @@ class FilexService
             $filename = $this->generateFileName($file->getClientOriginalName());
         }
 
-        $path = trim($directory, '/').'/'.$filename;
+        $path = trim($directory, '/') . '/' . $filename;
 
         // Pre-create directory to avoid repeated checks
         $dir = dirname($path);
@@ -645,7 +633,7 @@ class FilexService
             // Fall back to full validation
             return $this->validateTemp($tempPath, $originalName);
         } catch (\Exception $e) {
-            Log::error('File validation error: '.$e->getMessage(), ['temp_path' => $tempPath]);
+            Log::error('File validation error: ' . $e->getMessage(), ['temp_path' => $tempPath]);
 
             return ['valid' => false, 'message' => __('filex::translations.errors.file_validation_failed')];
         }
@@ -782,7 +770,7 @@ class FilexService
         $originalName = $metadata['original_name'] ?? basename($tempPath);
 
         $finalFileName = $this->generateFileName($originalName);
-        $finalPath = trim($targetDirectory, '/').'/'.$finalFileName;
+        $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
 
         // Ensure target directory exists
         $targetDisk = Storage::disk($disk);
@@ -856,7 +844,7 @@ class FilexService
 
             return ['valid' => true, 'message' => __('filex::translations.validation')];
         } catch (\Exception $e) {
-            Log::error('Enhanced file validation error: '.$e->getMessage(), [
+            Log::error('Enhanced file validation error: ' . $e->getMessage(), [
                 'temp_path' => $tempPath,
                 'original_name' => $originalName,
             ]);
@@ -870,7 +858,7 @@ class FilexService
      */
     protected function validateFileSignature(string $filePath, string $extension): bool
     {
-        $cacheKey = $extension.'_'.md5_file($filePath);
+        $cacheKey = $extension . '_' . md5_file($filePath);
 
         if (isset(self::$signatureCache[$cacheKey])) {
             return self::$signatureCache[$cacheKey];
@@ -1200,8 +1188,8 @@ class FilexService
 
             $tempDisk = $this->getTempDisk();
             $quarantineBaseDir = ConfigHelper::get('security.quarantine.directory', 'quarantine');
-            $quarantineDir = $quarantineBaseDir.'/'.date('Y/m/d');
-            $quarantineFile = $quarantineDir.'/'.basename($tempPath).'_'.time();
+            $quarantineDir = $quarantineBaseDir . '/' . date('Y/m/d');
+            $quarantineFile = $quarantineDir . '/' . basename($tempPath) . '_' . time();
 
             // Create quarantine directory
             if (! $tempDisk->exists($quarantineDir)) {
@@ -1221,7 +1209,7 @@ class FilexService
                     'ip_address' => request()->ip(),
                 ];
 
-                $tempDisk->put($quarantineFile.'.meta', json_encode($metadata));
+                $tempDisk->put($quarantineFile . '.meta', json_encode($metadata));
 
                 Log::alert('File quarantined', [
                     'original_path' => $tempPath,
@@ -1232,7 +1220,7 @@ class FilexService
 
             return $result;
         } catch (\Exception $e) {
-            Log::error('Failed to quarantine file: '.$e->getMessage(), [
+            Log::error('Failed to quarantine file: ' . $e->getMessage(), [
                 'temp_path' => $tempPath,
                 'reason' => $reason,
             ]);
@@ -1282,7 +1270,7 @@ class FilexService
                 }
 
                 try {
-                    $metadataPath = $file.'.meta';
+                    $metadataPath = $file . '.meta';
 
                     if ($tempDisk->exists($metadataPath)) {
                         $metadata = json_decode($tempDisk->get($metadataPath), true);
@@ -1312,7 +1300,7 @@ class FilexService
                         }
                     }
                 } catch (\Exception $e) {
-                    Log::error('Error cleaning quarantine file: '.$e->getMessage(), ['file' => $file]);
+                    Log::error('Error cleaning quarantine file: ' . $e->getMessage(), ['file' => $file]);
                     $errors[] = $file;
                 }
             }
@@ -1326,8 +1314,8 @@ class FilexService
                 }
             }
         } catch (\Exception $e) {
-            Log::error('Quarantine cleanup error: '.$e->getMessage());
-            $errors[] = 'General cleanup error: '.$e->getMessage();
+            Log::error('Quarantine cleanup error: ' . $e->getMessage());
+            $errors[] = 'General cleanup error: ' . $e->getMessage();
         }
 
         return [
@@ -1417,7 +1405,7 @@ class FilexService
                 return [
                     'success' => false,
                     'operation' => $operation,
-                    'error' => 'Unknown operation type: '.$type,
+                    'error' => 'Unknown operation type: ' . $type,
                 ];
         }
     }
@@ -1492,7 +1480,7 @@ class FilexService
                 return [
                     'success' => false,
                     'operation' => $operation,
-                    'error' => 'Unknown cleanup type: '.$type,
+                    'error' => 'Unknown cleanup type: ' . $type,
                 ];
         }
 
@@ -1557,24 +1545,24 @@ class FilexService
 
         // Add CSS assets
         foreach ($cssAssets as $css) {
-            $output .= '<link rel="stylesheet" href="'.$css.'" />'."\n";
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
         }
 
         // Add JS assets
         foreach ($jsAssets as $js) {
-            $output .= '<script src="'.$js.'"></script>'."\n";
+            $output .= '<script src="' . $js . '"></script>' . "\n";
         }
 
         // Add routes configuration
         $uploadRoute = route('filex.upload.temp');
         $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
 
-        $output .= '<script>'."\n";
-        $output .= 'window.filexRoutes = {'."\n";
-        $output .= '    upload: "'.$uploadRoute.'",'."\n";
-        $output .= '    delete: "'.$deleteRoute.'"'."\n";
-        $output .= '};'."\n";
-        $output .= '</script>'."\n";
+        $output .= '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
 
         return $output;
     }
@@ -1600,24 +1588,24 @@ class FilexService
 
         // Add CSS assets
         foreach ($cssAssets as $css) {
-            $output .= '<link rel="stylesheet" href="'.$css.'" />'."\n";
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
         }
 
         // Add JS assets
         foreach ($jsAssets as $js) {
-            $output .= '<script src="'.$js.'"></script>'."\n";
+            $output .= '<script src="' . $js . '"></script>' . "\n";
         }
 
         // Add routes configuration
         $uploadRoute = route('filex.upload.temp');
         $deleteRoute = route('filex.temp.delete', ['filename' => '__FILENAME__']);
 
-        $output .= '<script>'."\n";
-        $output .= 'window.filexRoutes = {'."\n";
-        $output .= '    upload: "'.$uploadRoute.'",'."\n";
-        $output .= '    delete: "'.$deleteRoute.'"'."\n";
-        $output .= '};'."\n";
-        $output .= '</script>'."\n";
+        $output .= '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
 
         return $output;
     }
@@ -1643,12 +1631,12 @@ class FilexService
 
         // Add CSS assets
         foreach ($cssAssets as $css) {
-            $output .= '<link rel="stylesheet" href="'.$css.'" />'."\n";
+            $output .= '<link rel="stylesheet" href="' . $css . '" />' . "\n";
         }
 
         // Add JS assets
         foreach ($jsAssets as $js) {
-            $output .= '<script src="'.$js.'"></script>'."\n";
+            $output .= '<script src="' . $js . '"></script>' . "\n";
         }
 
         return $output;
@@ -1663,12 +1651,12 @@ class FilexService
      */
     public function renderFilexRoutes($uploadRoute, $deleteRoute)
     {
-        $output = '<script>'."\n";
-        $output .= 'window.filexRoutes = {'."\n";
-        $output .= '    upload: "'.$uploadRoute.'",'."\n";
-        $output .= '    delete: "'.$deleteRoute.'"'."\n";
-        $output .= '};'."\n";
-        $output .= '</script>'."\n";
+        $output = '<script>' . "\n";
+        $output .= 'window.filexRoutes = {' . "\n";
+        $output .= '    upload: "' . $uploadRoute . '",' . "\n";
+        $output .= '    delete: "' . $deleteRoute . '"' . "\n";
+        $output .= '};' . "\n";
+        $output .= '</script>' . "\n";
 
         return $output;
     }
@@ -1711,7 +1699,7 @@ class FilexService
             $results = array_merge($results, $batchResults);
             PerformanceMonitor::endTimer("batch_process_{$batchIndex}", [
                 'batch_size' => count($batch),
-                'successful' => count(array_filter($batchResults, fn ($r) => $r['success'])),
+                'successful' => count(array_filter($batchResults, fn($r) => $r['success'])),
             ]);
         }
 
@@ -1720,7 +1708,7 @@ class FilexService
             'total_files' => count($tempPaths),
             'valid_files' => count($validPaths),
             'batches' => count($batches),
-            'successful' => count(array_filter($results, fn ($r) => $r['success'])),
+            'successful' => count(array_filter($results, fn($r) => $r['success'])),
         ]);
 
         return $results;
@@ -1777,7 +1765,7 @@ class FilexService
 
                 // Generate final filename
                 $finalFileName = $this->generateFileName($originalName);
-                $finalPath = trim($targetDirectory, '/').'/'.$finalFileName;
+                $finalPath = trim($targetDirectory, '/') . '/' . $finalFileName;
 
                 // Use streaming with optimal buffer size
                 $fileSize = $tempDisk->size($tempPath);

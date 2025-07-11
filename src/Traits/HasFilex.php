@@ -8,6 +8,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * HasFilex Trait - Public API for package consumers
+ *
+ * This trait provides file upload functionality to models and controllers.
+ * It's intended to be used by developers using this package in their applications.
+ */
 trait HasFilex
 {
     protected $filexService;
@@ -51,7 +57,7 @@ trait HasFilex
 
         // Validate required files
         if ($required && empty($tempPaths)) {
-            throw new \InvalidArgumentException('At least one file is required for '.$fieldName);
+            throw new \InvalidArgumentException('At least one file is required for ' . $fieldName);
         }
 
         // If no files provided, return empty array
@@ -77,12 +83,12 @@ trait HasFilex
 
         // Extract successful file paths
         $successfulPaths = array_column(
-            array_filter($results, fn ($r) => $r['success']),
+            array_filter($results, fn($r) => $r['success']),
             'finalPath'
         );
 
         // Log any failures
-        $failures = array_filter($results, fn ($r) => ! $r['success']);
+        $failures = array_filter($results, fn($r) => ! $r['success']);
         if (! empty($failures)) {
             Log::warning('Some files failed to process', [
                 'field' => $fieldName,
@@ -261,7 +267,7 @@ trait HasFilex
                 ['array'],
                 $additionalRules
             ),
-            $fieldName.'.*' => [
+            $fieldName . '.*' => [
                 'string',
                 'starts_with:temp/',
                 function ($attribute, $value, $fail) {

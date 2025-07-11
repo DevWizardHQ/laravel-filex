@@ -39,9 +39,8 @@ class FilexController extends Controller
     private static array $performanceMetrics = [];
 
     /**
-     * Cache size limits
+     * Cache size limits (removed unused constant)
      */
-    private const MAX_CACHE_SIZE = 100;
 
     public function __construct(FilexService $filexService)
     {
@@ -168,8 +167,8 @@ class FilexController extends Controller
         $originalFileName = $file->getClientOriginalName();
 
         // Create temp directory for chunks with proper permissions
-        $tempDir = 'temp/chunks/'.$uuid;
-        $chunkPath = $tempDir.'/chunk_'.$chunkIndex;
+        $tempDir = 'temp/chunks/' . $uuid;
+        $chunkPath = $tempDir . '/chunk_' . $chunkIndex;
         $tempDisk = $this->getTempDisk();
 
         try {
@@ -257,7 +256,7 @@ class FilexController extends Controller
     {
         try {
             // Reconstruct the temp path from the filename
-            $tempPath = 'temp/'.$filename;
+            $tempPath = 'temp/' . $filename;
 
             // Security check - ensure file is in temp directory and filename is valid
             if (
@@ -305,7 +304,7 @@ class FilexController extends Controller
                 'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Temp file deletion error: '.$e->getMessage(), [
+            Log::error('Temp file deletion error: ' . $e->getMessage(), [
                 'temp_path' => $request->input('tempPath'),
                 'filename' => $filename,
                 'user_id' => Auth::check() ? Auth::id() : null,
@@ -327,7 +326,7 @@ class FilexController extends Controller
     public function getTempFileInfo(Request $request, string $filename): JsonResponse
     {
         // Reconstruct the temp path from the filename
-        $tempPath = 'temp/'.$filename;
+        $tempPath = 'temp/' . $filename;
 
         // Security check - ensure file is in temp directory and filename is valid
         if (
@@ -389,7 +388,7 @@ class FilexController extends Controller
 
         try {
             for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkFile = $tempDir.'/chunk_'.$i;
+                $chunkFile = $tempDir . '/chunk_' . $i;
 
                 if ($tempDisk->exists($chunkFile)) {
                     $chunkFullPath = $tempDisk->path($chunkFile);
@@ -468,7 +467,7 @@ class FilexController extends Controller
                 'max_execution_time' => ini_get('max_execution_time'),
             ],
             'app_settings' => [
-                'max_file_size' => ConfigHelper::getMaxFileSize() / (1024 * 1024).'MB',
+                'max_file_size' => ConfigHelper::getMaxFileSize() / (1024 * 1024) . 'MB',
                 'performance_memory_limit' => ConfigHelper::get('performance.memory_limit'),
                 'performance_time_limit' => ConfigHelper::get('performance.time_limit'),
                 'temp_disk' => ConfigHelper::getTempDisk(),
@@ -606,7 +605,7 @@ class FilexController extends Controller
                 ]);
             }
 
-            $successCount = count(array_filter($results, fn ($r) => $r['success']));
+            $successCount = count(array_filter($results, fn($r) => $r['success']));
             $failCount = count($results) - $successCount;
 
             PerformanceMonitor::endTimer('bulk_upload', [
@@ -712,7 +711,7 @@ class FilexController extends Controller
     public function deleteTempDirectory(Request $request, string $uuid): JsonResponse
     {
         try {
-            $tempDir = 'temp/chunks/'.$uuid;
+            $tempDir = 'temp/chunks/' . $uuid;
 
             // Security check - ensure directory is valid
             if (
@@ -750,7 +749,7 @@ class FilexController extends Controller
                 'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Temp directory deletion error: '.$e->getMessage(), [
+            Log::error('Temp directory deletion error: ' . $e->getMessage(), [
                 'uuid' => $uuid,
                 'user_id' => Auth::check() ? Auth::id() : null,
                 'exception' => $e->getTraceAsString(),
@@ -942,7 +941,7 @@ class FilexController extends Controller
      */
     protected function handleUploadError(\Exception $e, $request): JsonResponse
     {
-        Log::error('File upload error: '.$e->getMessage(), [
+        Log::error('File upload error: ' . $e->getMessage(), [
             'exception' => $e,
             'request' => $request->all(),
             'user_id' => Auth::id(),
@@ -1044,14 +1043,16 @@ class FilexController extends Controller
         $lastProgressUpdate = microtime(true);
         $progressInterval = 0.5; // Update progress every 0.5 seconds
 
-        $source = fopen($sourcePath, 'rb');
-        $target = fopen($targetPath, 'wb');
-
-        if (! $source || ! $target) {
-            throw new \RuntimeException('Could not open files for streaming');
-        }
+        $source = null;
+        $target = null;
 
         try {
+            $source = fopen($sourcePath, 'rb');
+            $target = fopen($targetPath, 'wb');
+
+            if ($source === false || $target === false) {
+                throw new \RuntimeException('Could not open files for streaming');
+            }
             while (! feof($source)) {
                 $buffer = fread($source, $bufferSize);
                 if ($buffer === false) {
@@ -1078,10 +1079,10 @@ class FilexController extends Controller
                 }
             }
         } finally {
-            if ($source) {
+            if ($source && is_resource($source)) {
                 fclose($source);
             }
-            if ($target) {
+            if ($target && is_resource($target)) {
                 fclose($target);
             }
         }
@@ -1147,6 +1148,7 @@ class FilexController extends Controller
                     'peak' => ByteHelper::formatBytes(memory_get_peak_usage(true)),
                     'limit' => ByteHelper::formatBytes($this->getMemoryLimit()),
                 ],
+                'performance_data' => self::$performanceMetrics,
                 'cache_status' => [
                     'upload_limits_cached' => self::$uploadLimits !== null,
                     'disk_info_cached' => self::$diskInfo !== null,
@@ -1198,7 +1200,7 @@ class FilexController extends Controller
         ];
 
         Cache::put(
-            'upload_progress_'.request()->input('dzuuid'),
+            'upload_progress_' . request()->input('dzuuid'),
             $progress,
             now()->addMinutes(5)
         );
@@ -1235,9 +1237,9 @@ class FilexController extends Controller
             'chunk_index' => $chunkIndex + 1,
             'total_chunks' => $totalChunks,
             'size' => ByteHelper::formatBytes($size),
-            'duration' => $duration.'s',
+            'duration' => $duration . 's',
             'memory_used' => ByteHelper::formatBytes($memoryUsed),
-            'throughput' => ByteHelper::formatBytes((int) ($size / $duration)).'/s',
+            'throughput' => ByteHelper::formatBytes((int) ($size / $duration)) . '/s',
         ]);
     }
 
@@ -1247,7 +1249,7 @@ class FilexController extends Controller
     private function getUploadedChunksCount(string $tempDir): int
     {
         return collect($this->getTempDisk()->files($tempDir))
-            ->filter(fn ($file) => str_contains($file, 'chunk_'))
+            ->filter(fn($file) => str_contains($file, 'chunk_'))
             ->count();
     }
 
@@ -1266,7 +1268,7 @@ class FilexController extends Controller
 
             // Generate final filename
             $finalFileName = $this->filexService->generateFileName($originalFileName);
-            $finalPath = 'temp/'.$finalFileName;
+            $finalPath = 'temp/' . $finalFileName;
 
             // Merge chunks with optimized streaming
             $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
@@ -1319,9 +1321,7 @@ class FilexController extends Controller
         } catch (\Exception $e) {
             // Clean up on error
             $this->getTempDisk()->deleteDirectory($tempDir);
-            if (isset($finalPath)) {
-                $this->getTempDisk()->delete($finalPath);
-            }
+            $this->getTempDisk()->delete($finalPath);
 
             Log::error('Chunk merge error', [
                 'error' => $e->getMessage(),

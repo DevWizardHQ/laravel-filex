@@ -1,0 +1,10 @@
+parameters:
+	ignoreErrors:
+		# Config files are allowed to use env() - these are false positives from PHPStan
+		-
+			message: "#Called 'env' outside of the config directory which returns null when the config is cached, use 'config'#"
+			path: config/filex.php
+		# Public API trait - intended for external use by package consumers
+		-
+			message: "#Trait DevWizard\\\\Filex\\\\Traits\\\\HasFilex is used zero times and is not analysed#"
+			path: src/Traits/HasFilex.php

@@ -17,11 +17,6 @@ class FilexMimes implements ValidationRule
 
     protected $filexService;
 
-    /**
-     * Static cache for extension to MIME type mappings
-     */
-    private static ?array $extensionMimesCache = null;
-
     public function __construct(string $mimes)
     {
         // Convert extensions to MIME types using cached mapping
