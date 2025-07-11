@@ -4,8 +4,6 @@ All notable changes to `laravel-filex` will be documented in this file.
 
 ## v1.0.0 - 2025-07-11
 
-### [1.0.0] - 2025-07-11
-
 #### Added
 
 - 🎉 **Initial stable release of Laravel Filex**
