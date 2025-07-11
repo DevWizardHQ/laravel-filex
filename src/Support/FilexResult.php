@@ -10,7 +10,7 @@ use Countable;
 
 /**
  * FilexResult - Result object for file operations
- * 
+ *
  * Provides convenient access to file operation results with helper methods.
  * This class wraps the array results from file operations and provides
  * object-oriented access to the data.

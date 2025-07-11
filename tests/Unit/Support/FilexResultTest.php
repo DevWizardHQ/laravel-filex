@@ -64,7 +64,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $paths = $filexResult->getPaths();
-        
+
         expect($paths)->toHaveCount(2);
         expect($paths)->toContain('uploads/file1_12345.txt');
         expect($paths)->toContain('uploads/file3_67890.txt');
@@ -158,7 +158,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $successful = $filexResult->getSuccessful();
-        
+
         expect($successful)->toHaveCount(1);
         expect($successful[0]['tempPath'])->toBe('temp/file1.txt');
     }
@@ -180,7 +180,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $failed = $filexResult->getFailed();
-        
+
         expect($failed)->toHaveCount(1);
         expect($failed[0]['tempPath'])->toBe('temp/file2.txt');
     }
@@ -226,7 +226,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $errorMessages = $filexResult->getErrorMessages();
-        
+
         expect($errorMessages)->toHaveCount(2);
         expect($errorMessages)->toContain('First error');
         expect($errorMessages)->toContain('Second error');
@@ -245,7 +245,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $metadata = $filexResult->getMetadata();
-        
+
         expect($metadata)->toBe(['original_name' => 'file1.txt', 'size' => 1024]);
     }
 
@@ -305,7 +305,7 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $json = $filexResult->toJson();
-        
+
         expect($json)->toBeString();
         expect(json_decode($json, true))->toBe($results);
     }
@@ -318,7 +318,7 @@ class FilexResultTest extends TestCase
         ];
 
         $filexResult = new FilexResult($results);
-        
+
         expect($filexResult[0])->toBe($results[0]);
         expect($filexResult[1])->toBe($results[1]);
         expect(isset($filexResult[0]))->toBeTrue();
@@ -334,11 +334,11 @@ class FilexResultTest extends TestCase
 
         $filexResult = new FilexResult($results);
         $iterated = [];
-        
+
         foreach ($filexResult as $key => $value) {
             $iterated[$key] = $value;
         }
-        
+
         expect($iterated)->toBe($results);
     }
 

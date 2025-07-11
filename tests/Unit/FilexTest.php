@@ -17,10 +17,10 @@ class FilexTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->service = $this->app->make(FilexService::class);
         $this->filex = new Filex($this->service);
-        
+
         // Setup test storage
         Storage::fake('local');
         Storage::fake('temp');
@@ -34,7 +34,7 @@ class FilexTest extends TestCase
     public function test_service_method_returns_filex_service_instance()
     {
         $service = $this->filex->service();
-        
+
         expect($service)->toBeInstanceOf(FilexService::class);
         expect($service)->toBe($this->service);
     }
@@ -43,7 +43,7 @@ class FilexTest extends TestCase
     {
         $originalName = 'test-document.pdf';
         $generatedName = $this->filex->generateFileName($originalName);
-        
+
         expect($generatedName)->toBeString();
         expect($generatedName)->not->toEqual($originalName);
         expect($generatedName)->toContain('.pdf');
@@ -69,9 +69,9 @@ class FilexTest extends TestCase
         // Create a temporary test file
         $tempFile = UploadedFile::fake()->create('test.txt', 100);
         $tempPath = $tempFile->getPathname();
-        
+
         $validation = $this->filex->validateTemp($tempPath, 'test.txt');
-        
+
         expect($validation)->toBeArray();
         expect($validation)->toHaveKeys(['valid', 'message']);
         expect($validation['valid'])->toBeBool();
@@ -83,18 +83,18 @@ class FilexTest extends TestCase
         // Create temporary files for testing
         $tempFile1 = UploadedFile::fake()->create('test1.txt', 100);
         $tempFile2 = UploadedFile::fake()->create('test2.txt', 200);
-        
+
         $tempPaths = [
             $tempFile1->getPathname(),
             $tempFile2->getPathname(),
         ];
-        
+
         $targetDirectory = 'uploads';
         $results = $this->filex->moveFiles($tempPaths, $targetDirectory);
-        
+
         expect($results)->toBeInstanceOf(FilexResult::class);
         expect($results)->toHaveCount(2);
-        
+
         // Test that we can access the results as an array
         foreach ($results as $result) {
             expect($result)->toBeArray();
@@ -108,10 +108,10 @@ class FilexTest extends TestCase
     {
         $tempFile = UploadedFile::fake()->create('single-test.txt', 150);
         $tempPath = $tempFile->getPathname();
-        
+
         $targetDirectory = 'uploads';
         $results = $this->filex->moveFile($tempPath, $targetDirectory);
-        
+
         expect($results)->toBeInstanceOf(FilexResult::class);
         expect($results)->toHaveCount(1);
         expect($results[0])->toHaveKeys(['success', 'tempPath']);
@@ -122,7 +122,7 @@ class FilexTest extends TestCase
     public function test_cleanup_returns_cleanup_statistics()
     {
         $stats = $this->filex->cleanup();
-        
+
         expect($stats)->toBeArray();
         expect($stats)->toHaveKeys(['cleaned', 'errors', 'cleaned_count', 'error_count']);
         expect($stats['cleaned'])->toBeArray();
@@ -136,7 +136,7 @@ class FilexTest extends TestCase
         // Test that all public methods exist and return expected types
         $methods = [
             'generateFileName',
-            'validateTemp', 
+            'validateTemp',
             'moveFiles',
             'moveFile',
             'cleanup',
@@ -161,7 +161,7 @@ class FilexTest extends TestCase
     {
         $tempFile = UploadedFile::fake()->create('test-null-disk.txt', 100);
         $tempPath = $tempFile->getPathname();
-        
+
         // Should not throw an exception with null disk
         $results = $this->filex->moveFile($tempPath, 'uploads', null);
         expect($results)->toBeInstanceOf(FilexResult::class);
@@ -170,10 +170,10 @@ class FilexTest extends TestCase
     public function test_filex_with_custom_disk()
     {
         Storage::fake('custom');
-        
+
         $tempFile = UploadedFile::fake()->create('test-custom-disk.txt', 100);
         $tempPath = $tempFile->getPathname();
-        
+
         $results = $this->filex->moveFile($tempPath, 'uploads', 'custom');
         expect($results)->toBeInstanceOf(FilexResult::class);
     }

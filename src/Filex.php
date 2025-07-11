@@ -7,7 +7,7 @@ use DevWizard\Filex\Support\FilexResult;
 
 /**
  * Laravel Filex - Modern File Upload Component
- * 
+ *
  * Main class that provides convenient access to the FilexService
  * and serves as the primary entry point for the package.
  */
