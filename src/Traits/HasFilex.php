@@ -2,7 +2,6 @@
 
 namespace DevWizard\Filex\Traits;
 
-use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Facades\Filex;
 use Illuminate\Http\Request;
 
@@ -18,10 +17,9 @@ trait HasFilex
     /**
      * Move single file from request to permanent storage
      *
-     * @param Request $request
-     * @param string $fieldName Form field name containing temp path
-     * @param string $directory Target directory (e.g., 'uploads/avatars')
-     * @param string|null $disk Storage disk (defaults to config)
+     * @param  string  $fieldName  Form field name containing temp path
+     * @param  string  $directory  Target directory (e.g., 'uploads/avatars')
+     * @param  string|null  $disk  Storage disk (defaults to config)
      * @return string|null Final file path or null if no file
      */
     protected function moveFile(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
@@ -40,17 +38,16 @@ trait HasFilex
     /**
      * Move multiple files from request to permanent storage
      *
-     * @param Request $request
-     * @param string $fieldName Form field name containing array of temp paths
-     * @param string $directory Target directory
-     * @param string|null $disk Storage disk
+     * @param  string  $fieldName  Form field name containing array of temp paths
+     * @param  string  $directory  Target directory
+     * @param  string|null  $disk  Storage disk
      * @return array Array of final file paths
      */
     protected function moveFiles(Request $request, string $fieldName, string $directory, ?string $disk = null): array
     {
         $tempPaths = $request->input($fieldName, []);
 
-        if (empty($tempPaths) || !is_array($tempPaths)) {
+        if (empty($tempPaths) || ! is_array($tempPaths)) {
             return [];
         }
 
@@ -62,8 +59,6 @@ trait HasFilex
     /**
      * Get validation rules for file upload fields
      *
-     * @param string $fieldName
-     * @param bool $required
      * @return array Laravel validation rules
      */
     protected function getFileValidationRules(string $fieldName, bool $required = false): array
@@ -76,22 +71,19 @@ trait HasFilex
     /**
      * Get validation rules for multiple file upload fields
      *
-     * @param string $fieldName
-     * @param bool $required
      * @return array Laravel validation rules
      */
     protected function getFilesValidationRules(string $fieldName, bool $required = false): array
     {
         return [
             $fieldName => $required ? ['required', 'array'] : ['nullable', 'array'],
-            $fieldName . '.*' => ['string', 'starts_with:temp/'],
+            $fieldName.'.*' => ['string', 'starts_with:temp/'],
         ];
     }
 
     /**
      * Clean up temporary files (useful if validation fails)
      *
-     * @param array $tempPaths
      * @return int Number of files cleaned up
      */
     protected function cleanupTempFiles(array $tempPaths): int

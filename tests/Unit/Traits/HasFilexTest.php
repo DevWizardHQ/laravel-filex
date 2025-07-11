@@ -3,8 +3,8 @@
 namespace DevWizard\Filex\Tests\Unit\Traits;
 
 use DevWizard\Filex\Facades\Filex;
-use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Tests\TestCase;
 use DevWizard\Filex\Traits\HasFilex;
 use Illuminate\Http\Request;
@@ -56,7 +56,7 @@ class HasFilexTest extends TestCase
 
     public function test_move_file_returns_null_when_no_input()
     {
-        $request = new Request();
+        $request = new Request;
 
         $result = $this->testClass->moveFilePublic($request, 'avatar', 'avatars');
 
@@ -74,7 +74,7 @@ class HasFilexTest extends TestCase
             ->with('temp/test-file.jpg', 'avatars', null)
             ->andReturn($mockResult);
 
-        $request = new Request();
+        $request = new Request;
         $request->merge(['avatar' => 'temp/test-file.jpg']);
 
         $result = $this->testClass->moveFilePublic($request, 'avatar', 'avatars');
@@ -84,7 +84,7 @@ class HasFilexTest extends TestCase
 
     public function test_move_files_returns_empty_array_when_no_input()
     {
-        $request = new Request();
+        $request = new Request;
 
         $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
 
@@ -94,7 +94,7 @@ class HasFilexTest extends TestCase
 
     public function test_move_files_returns_empty_array_when_input_not_array()
     {
-        $request = new Request();
+        $request = new Request;
         $request->merge(['documents' => 'not-an-array']);
 
         $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
@@ -116,7 +116,7 @@ class HasFilexTest extends TestCase
             ->with(['temp/file1.jpg', 'temp/file2.pdf'], 'uploads', null)
             ->andReturn($mockResult);
 
-        $request = new Request();
+        $request = new Request;
         $request->merge(['documents' => ['temp/file1.jpg', 'temp/file2.pdf']]);
 
         $result = $this->testClass->moveFilesPublic($request, 'documents', 'uploads');
@@ -129,7 +129,7 @@ class HasFilexTest extends TestCase
         $rules = $this->testClass->getFileValidationRulesPublic('avatar');
 
         expect($rules)->toBe([
-            'avatar' => ['nullable', 'string', 'starts_with:temp/']
+            'avatar' => ['nullable', 'string', 'starts_with:temp/'],
         ]);
     }
 
@@ -138,7 +138,7 @@ class HasFilexTest extends TestCase
         $rules = $this->testClass->getFileValidationRulesPublic('avatar', true);
 
         expect($rules)->toBe([
-            'avatar' => ['required', 'string', 'starts_with:temp/']
+            'avatar' => ['required', 'string', 'starts_with:temp/'],
         ]);
     }
 
@@ -148,7 +148,7 @@ class HasFilexTest extends TestCase
 
         expect($rules)->toBe([
             'documents' => ['nullable', 'array'],
-            'documents.*' => ['string', 'starts_with:temp/']
+            'documents.*' => ['string', 'starts_with:temp/'],
         ]);
     }
 
@@ -158,7 +158,7 @@ class HasFilexTest extends TestCase
 
         expect($rules)->toBe([
             'documents' => ['required', 'array'],
-            'documents.*' => ['string', 'starts_with:temp/']
+            'documents.*' => ['string', 'starts_with:temp/'],
         ]);
     }
 

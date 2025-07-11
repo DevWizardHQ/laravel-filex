@@ -158,7 +158,7 @@ class FileUploadSecurityMiddleware
             $sessionId = '';
         }
 
-        return 'filex_upload:' . md5($ip . $sessionId);
+        return 'filex_upload:'.md5($ip.$sessionId);
     }
 
     /**
@@ -332,7 +332,7 @@ class FileUploadSecurityMiddleware
             foreach ($suspiciousPatterns as $pattern) {
                 // Use preg_quote to safely escape the pattern
                 $escapedPattern = preg_quote($pattern, '/');
-                if (preg_match('/' . $escapedPattern . '/i', implode(' ', $header))) {
+                if (preg_match('/'.$escapedPattern.'/i', implode(' ', $header))) {
                     return true;
                 }
             }
