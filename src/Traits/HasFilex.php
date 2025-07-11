@@ -79,7 +79,7 @@ trait HasFilex
     {
         return [
             $fieldName => $required ? ['required', 'array'] : ['nullable', 'array'],
-            $fieldName . '.*' => ['string', 'starts_with:temp/'],
+            $fieldName.'.*' => ['string', 'starts_with:temp/'],
         ];
     }
 
