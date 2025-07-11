@@ -38,7 +38,7 @@ All notable changes to `laravel-filex` will be documented in this file.
 #### Technical Specifications
 
 - **PHP**: ^8.4
-- **Laravel**: ^10.0 || ^11.0 || ^12.0
+- **Laravel**: ^11.0 || ^12.0
 - **Architecture**: Service-oriented with facades and dependency injection
 - **Testing**: 129 tests with comprehensive coverage
 - **Code Quality**: PHPStan leve
