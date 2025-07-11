@@ -237,7 +237,7 @@ return [
     |
     */
     'performance' => [
-        'memory_limit' => env('FILEX_MEMORY_LIMIT', '1G'),
+        'memory_limit' => env('FILEX_MEMORY_LIMIT', '512M'),
         'time_limit' => env('FILEX_TIME_LIMIT', 600), // 10 minutes
         'parallel_uploads' => env('FILEX_PARALLEL', 2),
         'chunk_threshold' => env('FILEX_CHUNK_THRESHOLD', 50 * 1024 * 1024), // 50MB
