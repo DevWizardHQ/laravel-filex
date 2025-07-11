@@ -105,6 +105,28 @@ class FilexTest extends TestCase
         }
     }
 
+    public function test_move_files_with_visibility_parameter()
+    {
+        // Create temporary files for testing
+        $tempFile1 = UploadedFile::fake()->create('test1.txt', 100);
+        $tempFile2 = UploadedFile::fake()->create('test2.txt', 200);
+
+        $tempPaths = [
+            $tempFile1->getPathname(),
+            $tempFile2->getPathname(),
+        ];
+
+        $targetDirectory = 'uploads';
+
+        // Test with public visibility
+        $results = $this->filex->moveFiles($tempPaths, $targetDirectory, null, 'public');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+
+        // Test with private visibility
+        $results = $this->filex->moveFiles($tempPaths, $targetDirectory, null, 'private');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+    }
+
     public function test_move_file_handles_single_file()
     {
         $tempFile = UploadedFile::fake()->create('single-test.txt', 150);
@@ -118,6 +140,21 @@ class FilexTest extends TestCase
         expect($results[0])->toHaveKeys(['success', 'tempPath']);
         expect($results[0]['success'])->toBeBool();
         expect($results[0]['tempPath'])->toBeString();
+    }
+
+    public function test_move_file_with_visibility_parameter()
+    {
+        $tempFile = UploadedFile::fake()->create('single-test.txt', 150);
+        $tempPath = $tempFile->getPathname();
+        $targetDirectory = 'uploads';
+
+        // Test with public visibility
+        $results = $this->filex->moveFile($tempPath, $targetDirectory, null, 'public');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+
+        // Test with private visibility
+        $results = $this->filex->moveFile($tempPath, $targetDirectory, null, 'private');
+        expect($results)->toBeInstanceOf(FilexResult::class);
     }
 
     public function test_cleanup_returns_cleanup_statistics()
@@ -140,6 +177,10 @@ class FilexTest extends TestCase
             'validateTemp',
             'moveFiles',
             'moveFile',
+            'moveFilePublic',
+            'moveFilePrivate',
+            'moveFilesPublic',
+            'moveFilesPrivate',
             'cleanup',
             'service',
         ];
@@ -176,6 +217,54 @@ class FilexTest extends TestCase
         $tempPath = $tempFile->getPathname();
 
         $results = $this->filex->moveFile($tempPath, 'uploads', 'custom');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+    }
+
+    public function test_convenience_methods_for_public_visibility()
+    {
+        $tempFile = UploadedFile::fake()->create('test-public.txt', 100);
+        $tempPath = $tempFile->getPathname();
+
+        // Test moveFilePublic
+        $results = $this->filex->moveFilePublic($tempPath, 'uploads');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+
+        // Test moveFilesPublic
+        $tempFile2 = UploadedFile::fake()->create('test-public2.txt', 100);
+        $tempPaths = [$tempPath, $tempFile2->getPathname()];
+        $results = $this->filex->moveFilesPublic($tempPaths, 'uploads');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+    }
+
+    public function test_convenience_methods_for_private_visibility()
+    {
+        $tempFile = UploadedFile::fake()->create('test-private.txt', 100);
+        $tempPath = $tempFile->getPathname();
+
+        // Test moveFilePrivate
+        $results = $this->filex->moveFilePrivate($tempPath, 'uploads');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+
+        // Test moveFilesPrivate
+        $tempFile2 = UploadedFile::fake()->create('test-private2.txt', 100);
+        $tempPaths = [$tempPath, $tempFile2->getPathname()];
+        $results = $this->filex->moveFilesPrivate($tempPaths, 'uploads');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+    }
+
+    public function test_move_with_explicit_visibility_parameters()
+    {
+        $tempFile = UploadedFile::fake()->create('test-visibility.txt', 100);
+        $tempPath = $tempFile->getPathname();
+
+        // Test moveFile with explicit visibility
+        $results = $this->filex->moveFile($tempPath, 'uploads', 'public', 'public');
+        expect($results)->toBeInstanceOf(FilexResult::class);
+
+        // Test moveFiles with explicit visibility
+        $tempFile2 = UploadedFile::fake()->create('test-visibility2.txt', 100);
+        $tempPaths = [$tempPath, $tempFile2->getPathname()];
+        $results = $this->filex->moveFiles($tempPaths, 'uploads', 'public', 'private');
         expect($results)->toBeInstanceOf(FilexResult::class);
     }
 }
