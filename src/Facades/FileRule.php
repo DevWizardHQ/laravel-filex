@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * FileRule Facade for easy validation rule access
- * 
+ *
  * @method static \DevWizard\Filex\Rules\ValidFileUpload forImages(int $maxSizeMB = 5)
  * @method static \DevWizard\Filex\Rules\ValidFileUpload forDocuments(int $maxSizeMB = 10)
  * @method static \DevWizard\Filex\Rules\ValidFileUpload forArchives(int $maxSizeMB = 50)

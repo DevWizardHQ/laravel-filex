@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace DevWizard\Filex\Support;
 
 use ArrayAccess;
-use Iterator;
 use Countable;
+use Iterator;
 
 /**
  * FilexResult - Result object for file operations
@@ -15,9 +15,10 @@ use Countable;
  * This class wraps the array results from file operations and provides
  * object-oriented access to the data.
  */
-class FilexResult implements ArrayAccess, Iterator, Countable
+class FilexResult implements ArrayAccess, Countable, Iterator
 {
     private array $results;
+
     private int $position = 0;
 
     public function __construct(array $results)
@@ -31,6 +32,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
     public function getPath(): ?string
     {
         $firstSuccess = $this->getFirstSuccessful();
+
         return $firstSuccess['finalPath'] ?? null;
     }
 
@@ -70,6 +72,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
                 return $result;
             }
         }
+
         return null;
     }
 
@@ -78,7 +81,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
      */
     public function getSuccessful(): array
     {
-        return array_values(array_filter($this->results, fn($result) => $result['success'] ?? false));
+        return array_values(array_filter($this->results, fn ($result) => $result['success'] ?? false));
     }
 
     /**
@@ -86,7 +89,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
      */
     public function getFailed(): array
     {
-        return array_values(array_filter($this->results, fn($result) => !($result['success'] ?? false)));
+        return array_values(array_filter($this->results, fn ($result) => ! ($result['success'] ?? false)));
     }
 
     /**
@@ -95,7 +98,8 @@ class FilexResult implements ArrayAccess, Iterator, Countable
     public function getErrorMessage(): ?string
     {
         $failed = $this->getFailed();
-        return !empty($failed) ? ($failed[0]['message'] ?? null) : null;
+
+        return ! empty($failed) ? ($failed[0]['message'] ?? null) : null;
     }
 
     /**
@@ -104,7 +108,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
     public function getErrorMessages(): array
     {
         return array_values(array_filter(array_map(function ($result) {
-            return !($result['success'] ?? false) ? ($result['message'] ?? null) : null;
+            return ! ($result['success'] ?? false) ? ($result['message'] ?? null) : null;
         }, $this->results)));
     }
 
@@ -114,6 +118,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
     public function getMetadata(): ?array
     {
         $firstSuccess = $this->getFirstSuccessful();
+
         return $firstSuccess['metadata'] ?? null;
     }
 
@@ -123,6 +128,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
     public function getTempPath(): ?string
     {
         $firstSuccess = $this->getFirstSuccessful();
+
         return $firstSuccess['tempPath'] ?? null;
     }
 
@@ -221,7 +227,7 @@ class FilexResult implements ArrayAccess, Iterator, Countable
 
     public function next(): void
     {
-        ++$this->position;
+        $this->position++;
     }
 
     public function valid(): bool

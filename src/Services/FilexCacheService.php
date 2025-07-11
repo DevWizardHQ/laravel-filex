@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 class FilexCacheService
 {
     private const CACHE_PREFIX = 'filex_';
+
     private const DEFAULT_TTL = 3600; // 1 hour
 
     /**
@@ -15,11 +16,11 @@ class FilexCacheService
      */
     public static function remember(string $key, callable $callback, ?int $ttl = null): mixed
     {
-        if (!config('filex.performance.optimization.enable_caching', true)) {
+        if (! config('filex.performance.optimization.enable_caching', true)) {
             return $callback();
         }
 
-        $cacheKey = self::CACHE_PREFIX . $key;
+        $cacheKey = self::CACHE_PREFIX.$key;
         $ttl = $ttl ?? config('filex.performance.optimization.cache_ttl', self::DEFAULT_TTL);
 
         try {
@@ -27,8 +28,9 @@ class FilexCacheService
         } catch (\Exception $e) {
             Log::warning('Cache operation failed, using fallback', [
                 'key' => $key,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return $callback();
         }
     }
@@ -38,11 +40,11 @@ class FilexCacheService
      */
     public static function put(string $key, mixed $value, ?int $ttl = null): bool
     {
-        if (!config('filex.performance.optimization.enable_caching', true)) {
+        if (! config('filex.performance.optimization.enable_caching', true)) {
             return false;
         }
 
-        $cacheKey = self::CACHE_PREFIX . $key;
+        $cacheKey = self::CACHE_PREFIX.$key;
         $ttl = $ttl ?? config('filex.performance.optimization.cache_ttl', self::DEFAULT_TTL);
 
         try {
@@ -50,8 +52,9 @@ class FilexCacheService
         } catch (\Exception $e) {
             Log::warning('Cache put operation failed', [
                 'key' => $key,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -61,19 +64,20 @@ class FilexCacheService
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        if (!config('filex.performance.optimization.enable_caching', true)) {
+        if (! config('filex.performance.optimization.enable_caching', true)) {
             return $default;
         }
 
-        $cacheKey = self::CACHE_PREFIX . $key;
+        $cacheKey = self::CACHE_PREFIX.$key;
 
         try {
             return Cache::get($cacheKey, $default);
         } catch (\Exception $e) {
             Log::warning('Cache get operation failed', [
                 'key' => $key,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return $default;
         }
     }
@@ -83,19 +87,20 @@ class FilexCacheService
      */
     public static function forget(string $key): bool
     {
-        if (!config('filex.performance.optimization.enable_caching', true)) {
+        if (! config('filex.performance.optimization.enable_caching', true)) {
             return false;
         }
 
-        $cacheKey = self::CACHE_PREFIX . $key;
+        $cacheKey = self::CACHE_PREFIX.$key;
 
         try {
             return Cache::forget($cacheKey);
         } catch (\Exception $e) {
             Log::warning('Cache forget operation failed', [
                 'key' => $key,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -111,8 +116,8 @@ class FilexCacheService
                 /** @var \Illuminate\Cache\RedisStore $store */
                 $store = Cache::getStore();
                 $redis = $store->connection();
-                $keys = $redis->keys(self::CACHE_PREFIX . '*');
-                if (!empty($keys)) {
+                $keys = $redis->keys(self::CACHE_PREFIX.'*');
+                if (! empty($keys)) {
                     $redis->del($keys);
                 }
             } else {
@@ -124,8 +129,9 @@ class FilexCacheService
             return true;
         } catch (\Exception $e) {
             Log::error('Cache flush operation failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -140,7 +146,7 @@ class FilexCacheService
                 'enabled' => config('filex.performance.optimization.enable_caching', true),
                 'ttl' => config('filex.performance.optimization.cache_ttl', self::DEFAULT_TTL),
                 'driver' => config('cache.default'),
-                'prefix' => self::CACHE_PREFIX
+                'prefix' => self::CACHE_PREFIX,
             ];
 
             // Add driver-specific stats if available
@@ -148,7 +154,7 @@ class FilexCacheService
                 /** @var \Illuminate\Cache\RedisStore $store */
                 $store = Cache::getStore();
                 $redis = $store->connection();
-                $keys = $redis->keys(self::CACHE_PREFIX . '*');
+                $keys = $redis->keys(self::CACHE_PREFIX.'*');
                 $stats['cached_keys'] = count($keys);
                 $info = $redis->info('memory');
                 $stats['memory_usage'] = $info['used_memory'] ?? 'unknown';
@@ -157,8 +163,9 @@ class FilexCacheService
             return $stats;
         } catch (\Exception $e) {
             Log::warning('Failed to get cache stats', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return ['error' => $e->getMessage()];
         }
     }
@@ -168,7 +175,8 @@ class FilexCacheService
      */
     public static function cacheFileMetadata(string $filePath, array $metadata): bool
     {
-        $key = 'file_metadata_' . md5($filePath);
+        $key = 'file_metadata_'.md5($filePath);
+
         return self::put($key, $metadata, 3600); // 1 hour cache
     }
 
@@ -177,7 +185,8 @@ class FilexCacheService
      */
     public static function getCachedFileMetadata(string $filePath): ?array
     {
-        $key = 'file_metadata_' . md5($filePath);
+        $key = 'file_metadata_'.md5($filePath);
+
         return self::get($key);
     }
 
@@ -186,7 +195,8 @@ class FilexCacheService
      */
     public static function cacheValidationResult(string $fileHash, array $result): bool
     {
-        $key = 'validation_' . $fileHash;
+        $key = 'validation_'.$fileHash;
+
         return self::put($key, $result, 1800); // 30 minutes cache
     }
 
@@ -195,7 +205,8 @@ class FilexCacheService
      */
     public static function getCachedValidationResult(string $fileHash): ?array
     {
-        $key = 'validation_' . $fileHash;
+        $key = 'validation_'.$fileHash;
+
         return self::get($key);
     }
 }

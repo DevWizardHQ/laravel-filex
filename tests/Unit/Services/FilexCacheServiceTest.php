@@ -32,8 +32,9 @@ class FilexCacheServiceTest extends TestCase
             ->once()
             ->withArgs(function ($cacheKey, $ttl, $callback) use ($key, &$cacheCalled) {
                 $cacheCalled = true;
-                expect($cacheKey)->toBe('filex_' . $key);
+                expect($cacheKey)->toBe('filex_'.$key);
                 expect($ttl)->toBe(60);
+
                 return true;
             })
             ->andReturn($expectedValue);
@@ -60,6 +61,7 @@ class FilexCacheServiceTest extends TestCase
             ->withArgs(function ($message, $context) use ($key) {
                 expect($message)->toBe('Cache operation failed, using fallback');
                 expect($context['key'])->toBe($key);
+
                 return true;
             });
 
@@ -78,9 +80,10 @@ class FilexCacheServiceTest extends TestCase
         Cache::shouldReceive('put')
             ->once()
             ->withArgs(function ($cacheKey, $cacheValue, $ttl) use ($key, $value) {
-                expect($cacheKey)->toBe('filex_' . $key);
+                expect($cacheKey)->toBe('filex_'.$key);
                 expect($cacheValue)->toBe($value);
                 expect($ttl)->toBe(60);
+
                 return true;
             })
             ->andReturn(true);
@@ -99,8 +102,9 @@ class FilexCacheServiceTest extends TestCase
         Cache::shouldReceive('get')
             ->once()
             ->withArgs(function ($cacheKey, $defaultValue) use ($key, $default) {
-                expect($cacheKey)->toBe('filex_' . $key);
+                expect($cacheKey)->toBe('filex_'.$key);
                 expect($defaultValue)->toBe($default);
+
                 return true;
             })
             ->andReturn($value);
@@ -117,7 +121,8 @@ class FilexCacheServiceTest extends TestCase
         Cache::shouldReceive('forget')
             ->once()
             ->withArgs(function ($cacheKey) use ($key) {
-                expect($cacheKey)->toBe('filex_' . $key);
+                expect($cacheKey)->toBe('filex_'.$key);
+
                 return true;
             })
             ->andReturn(true);
@@ -151,6 +156,7 @@ class FilexCacheServiceTest extends TestCase
         $callbackExecuted = false;
         $result = FilexCacheService::remember('key', function () use (&$callbackExecuted) {
             $callbackExecuted = true;
+
             return 'value';
         });
 
@@ -183,6 +189,7 @@ class FilexCacheServiceTest extends TestCase
             ->withArgs(function ($cacheKey, $cacheValue, $ttl) use ($metadata) {
                 expect($cacheValue)->toBe($metadata);
                 expect($ttl)->toBe(3600);
+
                 return true;
             })
             ->andReturn(true);
@@ -216,6 +223,7 @@ class FilexCacheServiceTest extends TestCase
             ->withArgs(function ($cacheKey, $cacheValue, $ttl) use ($result) {
                 expect($cacheValue)->toBe($result);
                 expect($ttl)->toBe(1800);
+
                 return true;
             })
             ->andReturn(true);

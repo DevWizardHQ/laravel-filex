@@ -26,7 +26,7 @@ if ($domain) {
 }
 
 // Add additional middleware if specified
-if (!empty($middleware)) {
+if (! empty($middleware)) {
     $groupConfig['middleware'] = $middleware;
 }
 

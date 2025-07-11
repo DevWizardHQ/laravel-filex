@@ -22,7 +22,7 @@ class CleanupTempFilesCommandTest extends TestCase
                 'cleaned' => ['temp/file1.jpg', 'temp/file2.pdf'],
                 'errors' => ['Failed to delete temp/error.txt'],
                 'cleaned_count' => 2,
-                'error_count' => 1
+                'error_count' => 1,
             ];
         }
 
@@ -32,7 +32,7 @@ class CleanupTempFilesCommandTest extends TestCase
                 'cleaned' => ['quarantine/malicious.php'],
                 'errors' => [],
                 'cleaned_count' => 1,
-                'error_count' => 0
+                'error_count' => 0,
             ];
         }
 
@@ -119,7 +119,7 @@ class CleanupTempFilesCommandTest extends TestCase
             'cleaned' => [],
             'errors' => [],
             'cleaned_count' => 0,
-            'error_count' => 0
+            'error_count' => 0,
         ];
 
         $this->createCommandWithMockService($emptyResults, $emptyResults);

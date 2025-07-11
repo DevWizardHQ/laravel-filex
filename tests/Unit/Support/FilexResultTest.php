@@ -14,14 +14,14 @@ class FilexResultTest extends TestCase
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
                 'finalPath' => 'uploads/file1_12345.txt',
-                'metadata' => ['original_name' => 'file1.txt']
+                'metadata' => ['original_name' => 'file1.txt'],
             ],
             [
                 'success' => true,
                 'tempPath' => 'temp/file2.txt',
                 'finalPath' => 'uploads/file2_67890.txt',
-                'metadata' => ['original_name' => 'file2.txt']
-            ]
+                'metadata' => ['original_name' => 'file2.txt'],
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -34,8 +34,8 @@ class FilexResultTest extends TestCase
             [
                 'success' => false,
                 'tempPath' => 'temp/file1.txt',
-                'message' => 'File not found'
-            ]
+                'message' => 'File not found',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -48,18 +48,18 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
+                'finalPath' => 'uploads/file1_12345.txt',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file2.txt',
-                'message' => 'Failed to move'
+                'message' => 'Failed to move',
             ],
             [
                 'success' => true,
                 'tempPath' => 'temp/file3.txt',
-                'finalPath' => 'uploads/file3_67890.txt'
-            ]
+                'finalPath' => 'uploads/file3_67890.txt',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -76,13 +76,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => false,
                 'tempPath' => 'temp/file1.txt',
-                'message' => 'Failed'
+                'message' => 'Failed',
             ],
             [
                 'success' => true,
                 'tempPath' => 'temp/file2.txt',
-                'finalPath' => 'uploads/file2_12345.txt'
-            ]
+                'finalPath' => 'uploads/file2_12345.txt',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -95,8 +95,8 @@ class FilexResultTest extends TestCase
             [
                 'success' => false,
                 'tempPath' => 'temp/file1.txt',
-                'message' => 'Failed'
-            ]
+                'message' => 'Failed',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -109,13 +109,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
+                'finalPath' => 'uploads/file1_12345.txt',
             ],
             [
                 'success' => true,
                 'tempPath' => 'temp/file2.txt',
-                'finalPath' => 'uploads/file2_67890.txt'
-            ]
+                'finalPath' => 'uploads/file2_67890.txt',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -128,13 +128,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
+                'finalPath' => 'uploads/file1_12345.txt',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file2.txt',
-                'message' => 'Failed'
-            ]
+                'message' => 'Failed',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -147,13 +147,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
+                'finalPath' => 'uploads/file1_12345.txt',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file2.txt',
-                'message' => 'Failed'
-            ]
+                'message' => 'Failed',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -169,13 +169,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
+                'finalPath' => 'uploads/file1_12345.txt',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file2.txt',
-                'message' => 'Failed'
-            ]
+                'message' => 'Failed',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -191,13 +191,13 @@ class FilexResultTest extends TestCase
             [
                 'success' => false,
                 'tempPath' => 'temp/file1.txt',
-                'message' => 'First error'
+                'message' => 'First error',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file2.txt',
-                'message' => 'Second error'
-            ]
+                'message' => 'Second error',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -210,18 +210,18 @@ class FilexResultTest extends TestCase
             [
                 'success' => false,
                 'tempPath' => 'temp/file1.txt',
-                'message' => 'First error'
+                'message' => 'First error',
             ],
             [
                 'success' => true,
                 'tempPath' => 'temp/file2.txt',
-                'finalPath' => 'uploads/file2_12345.txt'
+                'finalPath' => 'uploads/file2_12345.txt',
             ],
             [
                 'success' => false,
                 'tempPath' => 'temp/file3.txt',
-                'message' => 'Second error'
-            ]
+                'message' => 'Second error',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -239,8 +239,8 @@ class FilexResultTest extends TestCase
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
                 'finalPath' => 'uploads/file1_12345.txt',
-                'metadata' => ['original_name' => 'file1.txt', 'size' => 1024]
-            ]
+                'metadata' => ['original_name' => 'file1.txt', 'size' => 1024],
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -255,8 +255,8 @@ class FilexResultTest extends TestCase
             [
                 'success' => true,
                 'tempPath' => 'temp/file1.txt',
-                'finalPath' => 'uploads/file1_12345.txt'
-            ]
+                'finalPath' => 'uploads/file1_12345.txt',
+            ],
         ];
 
         $filexResult = new FilexResult($results);
@@ -268,7 +268,7 @@ class FilexResultTest extends TestCase
         $results = [
             ['success' => true, 'tempPath' => 'temp/file1.txt'],
             ['success' => false, 'tempPath' => 'temp/file2.txt'],
-            ['success' => true, 'tempPath' => 'temp/file3.txt']
+            ['success' => true, 'tempPath' => 'temp/file3.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -280,7 +280,7 @@ class FilexResultTest extends TestCase
         $results = [
             ['success' => true, 'tempPath' => 'temp/file1.txt'],
             ['success' => false, 'tempPath' => 'temp/file2.txt'],
-            ['success' => false, 'tempPath' => 'temp/file3.txt']
+            ['success' => false, 'tempPath' => 'temp/file3.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -290,7 +290,7 @@ class FilexResultTest extends TestCase
     public function test_to_array_returns_original_results()
     {
         $results = [
-            ['success' => true, 'tempPath' => 'temp/file1.txt']
+            ['success' => true, 'tempPath' => 'temp/file1.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -300,7 +300,7 @@ class FilexResultTest extends TestCase
     public function test_to_json_returns_json_string()
     {
         $results = [
-            ['success' => true, 'tempPath' => 'temp/file1.txt']
+            ['success' => true, 'tempPath' => 'temp/file1.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -314,7 +314,7 @@ class FilexResultTest extends TestCase
     {
         $results = [
             ['success' => true, 'tempPath' => 'temp/file1.txt'],
-            ['success' => false, 'tempPath' => 'temp/file2.txt']
+            ['success' => false, 'tempPath' => 'temp/file2.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -329,7 +329,7 @@ class FilexResultTest extends TestCase
     {
         $results = [
             ['success' => true, 'tempPath' => 'temp/file1.txt'],
-            ['success' => false, 'tempPath' => 'temp/file2.txt']
+            ['success' => false, 'tempPath' => 'temp/file2.txt'],
         ];
 
         $filexResult = new FilexResult($results);
@@ -346,7 +346,7 @@ class FilexResultTest extends TestCase
     {
         $results = [
             ['success' => true, 'tempPath' => 'temp/file1.txt'],
-            ['success' => false, 'tempPath' => 'temp/file2.txt']
+            ['success' => false, 'tempPath' => 'temp/file2.txt'],
         ];
 
         $filexResult = new FilexResult($results);

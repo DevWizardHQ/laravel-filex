@@ -3,8 +3,8 @@
 namespace DevWizard\Filex\Http\Requests;
 
 use DevWizard\Filex\Rules\ValidFileUpload;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
@@ -19,10 +19,15 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 class FileUploadRequest extends FormRequest
 {
     protected $fileField;
+
     protected $allowedExtensions;
+
     protected $allowedMimeTypes;
+
     protected $maxFileSize;
+
     protected $required;
+
     protected $multiple;
 
     /**
@@ -68,24 +73,24 @@ class FileUploadRequest extends FormRequest
         if ($this->multiple) {
             // Multiple file uploads (temp paths)
             $rules[$fileField] = $this->required ? ['required', 'array'] : ['nullable', 'array'];
-            $rules[$fileField . '.*'] = [
+            $rules[$fileField.'.*'] = [
                 'string',
                 'starts_with:temp/',
                 new ValidFileUpload(
                     $this->allowedExtensions,
                     $this->allowedMimeTypes,
                     $this->maxFileSize * 1024 * 1024 // Convert MB to bytes
-                )
+                ),
             ];
         } else {
             // Single file upload
-            if ($this->has($fileField) && !is_array($this->input($fileField))) {
+            if ($this->has($fileField) && ! is_array($this->input($fileField))) {
                 // Direct file upload
                 $rules[$fileField] = array_filter([
                     $this->required ? 'required' : 'nullable',
                     'file',
-                    'max:' . ($this->maxFileSize * 1024), // Laravel expects KB
-                    $this->allowedExtensions ? 'mimes:' . implode(',', $this->allowedExtensions) : null,
+                    'max:'.($this->maxFileSize * 1024), // Laravel expects KB
+                    $this->allowedExtensions ? 'mimes:'.implode(',', $this->allowedExtensions) : null,
                 ]);
             } else {
                 // Temp file path
@@ -96,7 +101,7 @@ class FileUploadRequest extends FormRequest
                         $this->allowedExtensions,
                         $this->allowedMimeTypes,
                         $this->maxFileSize * 1024 * 1024
-                    )
+                    ),
                 ]);
             }
         }
@@ -112,15 +117,15 @@ class FileUploadRequest extends FormRequest
         $fileField = $this->fileField ?? 'file';
 
         return [
-            $fileField . '.required' => 'Please select a file to upload.',
-            $fileField . '.file' => 'The uploaded item must be a valid file.',
-            $fileField . '.max' => 'The file size must not exceed ' . $this->maxFileSize . 'MB.',
-            $fileField . '.mimes' => 'The file must be of type: ' . implode(', ', $this->allowedExtensions ?? []),
-            $fileField . '.starts_with' => 'Invalid file reference.',
-            $fileField . '.*.required' => 'Please select files to upload.',
-            $fileField . '.*.string' => 'Invalid file reference.',
-            $fileField . '.*.starts_with' => 'Invalid file reference.',
-            $fileField . '.array' => 'Invalid file data format.',
+            $fileField.'.required' => 'Please select a file to upload.',
+            $fileField.'.file' => 'The uploaded item must be a valid file.',
+            $fileField.'.max' => 'The file size must not exceed '.$this->maxFileSize.'MB.',
+            $fileField.'.mimes' => 'The file must be of type: '.implode(', ', $this->allowedExtensions ?? []),
+            $fileField.'.starts_with' => 'Invalid file reference.',
+            $fileField.'.*.required' => 'Please select files to upload.',
+            $fileField.'.*.string' => 'Invalid file reference.',
+            $fileField.'.*.starts_with' => 'Invalid file reference.',
+            $fileField.'.array' => 'Invalid file data format.',
         ];
     }
 
@@ -145,7 +150,7 @@ class FileUploadRequest extends FormRequest
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $validator->errors(),
-                    'field' => $this->fileField ?? 'file'
+                    'field' => $this->fileField ?? 'file',
                 ], 422)
             );
         }
@@ -158,7 +163,7 @@ class FileUploadRequest extends FormRequest
      */
     public static function forImages(bool $required = true, bool $multiple = false): self
     {
-        return (new self())->configure(
+        return (new self)->configure(
             'images',
             ['jpg', 'jpeg', 'png', 'gif', 'webp'],
             ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
@@ -170,7 +175,7 @@ class FileUploadRequest extends FormRequest
 
     public static function forDocuments(bool $required = true, bool $multiple = false): self
     {
-        return (new self())->configure(
+        return (new self)->configure(
             'documents',
             ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'],
             [
@@ -191,7 +196,7 @@ class FileUploadRequest extends FormRequest
 
     public static function forAvatars(bool $required = true): self
     {
-        return (new self())->configure(
+        return (new self)->configure(
             'avatar',
             ['jpg', 'jpeg', 'png'],
             ['image/jpeg', 'image/jpg', 'image/png'],
@@ -203,7 +208,7 @@ class FileUploadRequest extends FormRequest
 
     public static function forArchives(bool $required = true, bool $multiple = false): self
     {
-        return (new self())->configure(
+        return (new self)->configure(
             'archives',
             ['zip', 'rar', '7z', 'tar', 'gz'],
             [
@@ -229,7 +234,7 @@ class FileUploadRequest extends FormRequest
 
         $files = $validated[$fileField] ?? [];
 
-        if (!is_array($files)) {
+        if (! is_array($files)) {
             $files = [$files];
         }
 
@@ -242,7 +247,8 @@ class FileUploadRequest extends FormRequest
     public function hasValidFiles(): bool
     {
         $files = $this->getValidatedFiles();
-        return !empty($files);
+
+        return ! empty($files);
     }
 
     /**

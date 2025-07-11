@@ -2,8 +2,8 @@
 
 namespace DevWizard\Filex\Tests;
 
-use Orchestra\Testbench\TestCase as Orchestra;
 use DevWizard\Filex\FilexServiceProvider;
+use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra
 {

@@ -2,9 +2,9 @@
 
 namespace DevWizard\Filex\Rules;
 
+use Closure;
 use DevWizard\Filex\Services\FilexService;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Closure;
 
 /**
  * Filex image validation rule
@@ -22,14 +22,16 @@ class FilexImage implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (!is_string($value) || !str_starts_with($value, 'temp/')) {
+        if (! is_string($value) || ! str_starts_with($value, 'temp/')) {
             $fail(__('filex::validation.temp_file'));
+
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
-        if (!$tempDisk->exists($value)) {
+        if (! $tempDisk->exists($value)) {
             $fail(__('filex::validation.file_not_found'));
+
             return;
         }
 
@@ -39,6 +41,7 @@ class FilexImage implements ValidationRule
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo === false) {
             $fail(__('filex::validation.must_be_image'));
+
             return;
         }
 
@@ -50,18 +53,18 @@ class FilexImage implements ValidationRule
             'image/gif',
             'image/webp',
             'image/bmp',
-            'image/svg+xml'
+            'image/svg+xml',
         ];
 
         $realMimeType = $this->detectRealMimeType($filePath);
-        if (!in_array($realMimeType, $allowedMimes)) {
+        if (! in_array($realMimeType, $allowedMimes)) {
             $fail(__('filex::validation.must_be_image'));
         }
     }
 
     protected function detectRealMimeType(string $filePath): string
     {
-        if (!file_exists($filePath)) {
+        if (! file_exists($filePath)) {
             return 'application/octet-stream';
         }
 

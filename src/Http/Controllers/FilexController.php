@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace DevWizard\Filex\Http\Controllers;
 
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Services\PerformanceMonitor;
 use DevWizard\Filex\Support\ByteHelper;
 use DevWizard\Filex\Support\ConfigHelper;
-use DevWizard\Filex\Services\PerformanceMonitor;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Cache;
 
 class FilexController extends Controller
 {
@@ -29,7 +28,9 @@ class FilexController extends Controller
      * Cache for upload limits and configuration
      */
     private static ?array $uploadLimits = null;
+
     private static ?array $diskInfo = null;
+
     private static ?int $memoryLimit = null;
 
     /**
@@ -71,7 +72,7 @@ class FilexController extends Controller
         // Set time limit if configured
         $timeLimit = ConfigHelper::get('performance.time_limit');
         if ($timeLimit) {
-            set_time_limit((int)$timeLimit);
+            set_time_limit((int) $timeLimit);
         }
 
         // Optimize for file uploads
@@ -127,8 +128,9 @@ class FilexController extends Controller
 
             // Basic validation first
             $basicValidation = $this->validateBasicUpload($request);
-            if (!$basicValidation['valid']) {
+            if (! $basicValidation['valid']) {
                 PerformanceMonitor::endTimer('upload_temp', ['result' => 'validation_failed']);
+
                 return $this->errorResponse($basicValidation['message'], 422);
             }
 
@@ -144,12 +146,13 @@ class FilexController extends Controller
             PerformanceMonitor::endTimer('upload_temp', [
                 'result' => 'success',
                 'type' => $isChunked ? 'chunked' : 'single',
-                'file_size' => $file->getSize()
+                'file_size' => $file->getSize(),
             ]);
 
             return $result;
         } catch (\Exception $e) {
             PerformanceMonitor::endTimer('upload_temp', ['result' => 'error', 'error' => $e->getMessage()]);
+
             return $this->handleUploadError($e, $request);
         }
     }
@@ -165,8 +168,8 @@ class FilexController extends Controller
         $originalFileName = $file->getClientOriginalName();
 
         // Create temp directory for chunks with proper permissions
-        $tempDir = 'temp/chunks/' . $uuid;
-        $chunkPath = $tempDir . '/chunk_' . $chunkIndex;
+        $tempDir = 'temp/chunks/'.$uuid;
+        $chunkPath = $tempDir.'/chunk_'.$chunkIndex;
         $tempDisk = $this->getTempDisk();
 
         try {
@@ -176,7 +179,7 @@ class FilexController extends Controller
 
             // Ensure chunk directory exists with proper permissions
             $chunkDir = dirname($tempDisk->path($chunkPath));
-            if (!is_dir($chunkDir)) {
+            if (! is_dir($chunkDir)) {
                 mkdir($chunkDir, 0755, true);
             }
 
@@ -221,11 +224,11 @@ class FilexController extends Controller
                 'progress' => round(($uploadedChunks / $totalChunks) * 100, 2),
                 'message' => __('filex::translations.chunk_uploaded', [
                     'chunk' => $chunkIndex + 1,
-                    'total' => $totalChunks
+                    'total' => $totalChunks,
                 ]),
                 'upload_type' => 'chunk_partial',
                 'metrics' => $this->getUploadMetrics(),
-                'timestamp' => now()->toIso8601String()
+                'timestamp' => now()->toIso8601String(),
             ]);
         } catch (\Exception $e) {
             // Clean up on error
@@ -254,11 +257,11 @@ class FilexController extends Controller
     {
         try {
             // Reconstruct the temp path from the filename
-            $tempPath = 'temp/' . $filename;
+            $tempPath = 'temp/'.$filename;
 
             // Security check - ensure file is in temp directory and filename is valid
             if (
-                !str_starts_with($tempPath, 'temp/') ||
+                ! str_starts_with($tempPath, 'temp/') ||
                 str_contains($filename, '..') ||
                 str_contains($filename, '/') ||
                 empty($filename)
@@ -267,7 +270,7 @@ class FilexController extends Controller
                     'success' => false,
                     'message' => __('filex::translations.invalid_file_path'),
                     'error_type' => 'security_error',
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ], 403);
             }
 
@@ -278,17 +281,17 @@ class FilexController extends Controller
                     'success' => false,
                     'message' => __('filex::translations.no_permission_delete'),
                     'error_type' => 'authorization_error',
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ], 403);
             }
 
             // Check if file exists before attempting deletion
-            if (!$this->getTempDisk()->exists($tempPath)) {
+            if (! $this->getTempDisk()->exists($tempPath)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.file_not_found_or_deleted'),
                     'error_type' => 'file_not_found',
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ], 404);
             }
 
@@ -299,21 +302,21 @@ class FilexController extends Controller
                 'success' => $deleted,
                 'message' => $deleted ? __('filex::translations.file_deleted') : __('filex::translations.file_delete_failed'),
                 'filename' => $filename,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Temp file deletion error: ' . $e->getMessage(), [
+            Log::error('Temp file deletion error: '.$e->getMessage(), [
                 'temp_path' => $request->input('tempPath'),
                 'filename' => $filename,
                 'user_id' => Auth::check() ? Auth::id() : null,
-                'exception' => $e->getTraceAsString()
+                'exception' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => __('filex::translations.delete_error'),
                 'error_type' => 'server_error',
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ], 500);
         }
     }
@@ -324,11 +327,11 @@ class FilexController extends Controller
     public function getTempFileInfo(Request $request, string $filename): JsonResponse
     {
         // Reconstruct the temp path from the filename
-        $tempPath = 'temp/' . $filename;
+        $tempPath = 'temp/'.$filename;
 
         // Security check - ensure file is in temp directory and filename is valid
         if (
-            !str_starts_with($tempPath, 'temp/') ||
+            ! str_starts_with($tempPath, 'temp/') ||
             str_contains($filename, '..') ||
             str_contains($filename, '/') ||
             empty($filename)
@@ -337,18 +340,18 @@ class FilexController extends Controller
                 'success' => false,
                 'message' => __('filex::translations.invalid_file_path_requested'),
                 'error_type' => 'security_error',
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ], 403);
         }
 
         $tempDisk = $this->getTempDisk();
 
-        if (!$tempDisk->exists($tempPath)) {
+        if (! $tempDisk->exists($tempPath)) {
             return response()->json([
                 'success' => false,
                 'message' => __('filex::translations.file_not_found_or_expired'),
                 'error_type' => 'file_not_found',
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ], 404);
         }
 
@@ -360,7 +363,7 @@ class FilexController extends Controller
             'size' => $tempDisk->size($tempPath),
             'metadata' => $metadata,
             'human_readable_size' => ByteHelper::formatBytes($tempDisk->size($tempPath)),
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -374,30 +377,30 @@ class FilexController extends Controller
 
         // Ensure the directory exists
         $directory = dirname($finalFullPath);
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
         $outputHandle = fopen($finalFullPath, 'wb');
 
-        if (!$outputHandle) {
+        if (! $outputHandle) {
             throw new \RuntimeException('Could not open output file for writing');
         }
 
         try {
             for ($i = 0; $i < $totalChunks; $i++) {
-                $chunkFile = $tempDir . '/chunk_' . $i;
+                $chunkFile = $tempDir.'/chunk_'.$i;
 
                 if ($tempDisk->exists($chunkFile)) {
                     $chunkFullPath = $tempDisk->path($chunkFile);
                     $inputHandle = fopen($chunkFullPath, 'rb');
 
-                    if (!$inputHandle) {
+                    if (! $inputHandle) {
                         throw new \RuntimeException("Could not open chunk file: {$chunkFile}");
                     }
 
                     // Stream copy in 8KB chunks to avoid memory issues
-                    while (!feof($inputHandle)) {
+                    while (! feof($inputHandle)) {
                         $data = fread($inputHandle, 8192);
                         if ($data === false) {
                             break;
@@ -439,7 +442,7 @@ class FilexController extends Controller
             'memory_limit' => $memoryLimit,
             'our_max_size' => $ourMaxSize,
             'effective_limit' => $effectiveLimit,
-            'effective_limit_mb' => round($effectiveLimit / (1024 * 1024), 2)
+            'effective_limit_mb' => round($effectiveLimit / (1024 * 1024), 2),
         ];
 
         return self::$uploadLimits;
@@ -450,7 +453,7 @@ class FilexController extends Controller
      */
     public function getUploadConfig(): JsonResponse
     {
-        if (!config('app.debug')) {
+        if (! config('app.debug')) {
             return response()->json(['error' => __('filex::translations.not_available_production')], 403);
         }
 
@@ -465,7 +468,7 @@ class FilexController extends Controller
                 'max_execution_time' => ini_get('max_execution_time'),
             ],
             'app_settings' => [
-                'max_file_size' => ConfigHelper::getMaxFileSize() / (1024 * 1024) . 'MB',
+                'max_file_size' => ConfigHelper::getMaxFileSize() / (1024 * 1024).'MB',
                 'performance_memory_limit' => ConfigHelper::get('performance.memory_limit'),
                 'performance_time_limit' => ConfigHelper::get('performance.time_limit'),
                 'temp_disk' => ConfigHelper::getTempDisk(),
@@ -476,7 +479,7 @@ class FilexController extends Controller
                 'current' => memory_get_usage(true),
                 'peak' => memory_get_peak_usage(true),
             ],
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -493,8 +496,9 @@ class FilexController extends Controller
 
             // Lazy validation - only validate what we need
             $basicValidation = $this->validateBasicUpload($request);
-            if (!$basicValidation['valid']) {
+            if (! $basicValidation['valid']) {
                 PerformanceMonitor::endTimer('upload_optimized', ['result' => 'validation_failed']);
+
                 return $this->errorResponse($basicValidation['message'], 422);
             }
 
@@ -505,10 +509,11 @@ class FilexController extends Controller
             $fileSize = $file->getSize();
             $chunkThreshold = ConfigHelper::get('performance.chunk_threshold', 50 * 1024 * 1024); // 50MB
 
-            if ($fileSize > $chunkThreshold && !$isChunked) {
+            if ($fileSize > $chunkThreshold && ! $isChunked) {
                 $maxSizeMB = round($chunkThreshold / (1024 * 1024), 2);
                 $fileSizeMB = round($fileSize / (1024 * 1024), 2);
                 PerformanceMonitor::endTimer('upload_optimized', ['result' => 'file_too_large']);
+
                 return $this->errorResponse(
                     __('filex::translations.file_too_large_single', ['size' => $fileSizeMB, 'max' => $maxSizeMB]),
                     413
@@ -522,12 +527,13 @@ class FilexController extends Controller
             PerformanceMonitor::endTimer('upload_optimized', [
                 'result' => 'success',
                 'type' => $isChunked ? 'chunked' : 'single',
-                'file_size' => $fileSize
+                'file_size' => $fileSize,
             ]);
 
             return $result;
         } catch (\Exception $e) {
             PerformanceMonitor::endTimer('upload_optimized', ['result' => 'error']);
+
             return $this->handleUploadError($e, $request);
         }
     }
@@ -542,12 +548,12 @@ class FilexController extends Controller
         try {
             $this->applyPerformanceSettings();
 
-            if (!$request->hasFile('files')) {
+            if (! $request->hasFile('files')) {
                 return $this->errorResponse(__('filex::translations.no_files_selected'), 422);
             }
 
             $files = $request->file('files');
-            if (!is_array($files)) {
+            if (! is_array($files)) {
                 $files = [$files];
             }
 
@@ -569,24 +575,25 @@ class FilexController extends Controller
                 foreach ($batch as $file) {
                     try {
                         $basicValidation = $this->validateBasicUploadFile($file);
-                        if (!$basicValidation['valid']) {
+                        if (! $basicValidation['valid']) {
                             $results[] = [
                                 'success' => false,
                                 'filename' => $file->getClientOriginalName(),
-                                'message' => $basicValidation['message']
+                                'message' => $basicValidation['message'],
                             ];
+
                             continue;
                         }
 
                         $result = $this->processSingleFileUpload($file);
                         $results[] = array_merge($result, [
-                            'filename' => $file->getClientOriginalName()
+                            'filename' => $file->getClientOriginalName(),
                         ]);
                     } catch (\Exception $e) {
                         $results[] = [
                             'success' => false,
                             'filename' => $file->getClientOriginalName(),
-                            'message' => $e->getMessage()
+                            'message' => $e->getMessage(),
                         ];
                     }
                 }
@@ -595,17 +602,17 @@ class FilexController extends Controller
                 $this->checkMemoryUsage();
 
                 PerformanceMonitor::endTimer("bulk_batch_{$batchIndex}", [
-                    'batch_size' => count($batch)
+                    'batch_size' => count($batch),
                 ]);
             }
 
-            $successCount = count(array_filter($results, fn($r) => $r['success']));
+            $successCount = count(array_filter($results, fn ($r) => $r['success']));
             $failCount = count($results) - $successCount;
 
             PerformanceMonitor::endTimer('bulk_upload', [
                 'total_files' => count($files),
                 'successful' => $successCount,
-                'failed' => $failCount
+                'failed' => $failCount,
             ]);
 
             return response()->json([
@@ -615,13 +622,14 @@ class FilexController extends Controller
                     'total' => count($files),
                     'successful' => $successCount,
                     'failed' => $failCount,
-                    'success_rate' => round(($successCount / count($files)) * 100, 2)
+                    'success_rate' => round(($successCount / count($files)) * 100, 2),
                 ],
                 'message' => __('filex::translations.bulk_upload_completed'),
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             PerformanceMonitor::endTimer('bulk_upload', ['result' => 'error']);
+
             return $this->handleUploadError($e, $request);
         }
     }
@@ -641,11 +649,12 @@ class FilexController extends Controller
             );
 
             $validation = $this->filexService->validateDeferred($tempPath, $originalFileName);
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 $this->getTempDisk()->delete($tempPath);
+
                 return [
                     'success' => false,
-                    'message' => $validation['message']
+                    'message' => $validation['message'],
                 ];
             }
 
@@ -656,7 +665,7 @@ class FilexController extends Controller
                 'session_id' => session()->getId(),
                 'file_size' => $file->getSize(),
                 'mime_type' => $file->getMimeType(),
-                'upload_type' => 'bulk'
+                'upload_type' => 'bulk',
             ]);
 
             return [
@@ -664,12 +673,12 @@ class FilexController extends Controller
                 'tempPath' => $tempPath,
                 'size' => $file->getSize(),
                 'human_readable_size' => ByteHelper::formatBytes($file->getSize()),
-                'message' => __('filex::translations.upload_success')
+                'message' => __('filex::translations.upload_success'),
             ];
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ];
         }
     }
@@ -679,7 +688,7 @@ class FilexController extends Controller
      */
     protected function validateBasicUploadFile($file): array
     {
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             return ['valid' => false, 'message' => __('filex::translations.invalid_file')];
         }
 
@@ -687,9 +696,10 @@ class FilexController extends Controller
         if ($file->getSize() > $limits['effective_limit']) {
             $maxSizeMB = round($limits['effective_limit'] / (1024 * 1024), 2);
             $fileSizeMB = round($file->getSize() / (1024 * 1024), 2);
+
             return [
                 'valid' => false,
-                'message' => __('filex::translations.file_too_large_limit', ['size' => $fileSizeMB, 'max' => $maxSizeMB])
+                'message' => __('filex::translations.file_too_large_limit', ['size' => $fileSizeMB, 'max' => $maxSizeMB]),
             ];
         }
 
@@ -702,11 +712,11 @@ class FilexController extends Controller
     public function deleteTempDirectory(Request $request, string $uuid): JsonResponse
     {
         try {
-            $tempDir = 'temp/chunks/' . $uuid;
+            $tempDir = 'temp/chunks/'.$uuid;
 
             // Security check - ensure directory is valid
             if (
-                !str_starts_with($tempDir, 'temp/chunks/') ||
+                ! str_starts_with($tempDir, 'temp/chunks/') ||
                 str_contains($uuid, '..') ||
                 str_contains($uuid, '/') ||
                 empty($uuid)
@@ -715,19 +725,19 @@ class FilexController extends Controller
                     'success' => false,
                     'message' => __('filex::translations.invalid_directory'),
                     'error_type' => 'security_error',
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ], 403);
             }
 
             $tempDisk = $this->getTempDisk();
 
             // Check if directory exists
-            if (!$tempDisk->exists($tempDir)) {
+            if (! $tempDisk->exists($tempDir)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.directory_not_found'),
                     'error_type' => 'directory_not_found',
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ], 404);
             }
 
@@ -737,20 +747,20 @@ class FilexController extends Controller
             return response()->json([
                 'success' => $deleted,
                 'message' => $deleted ? __('filex::translations.directory_deleted') : __('filex::translations.directory_delete_failed'),
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
-            Log::error('Temp directory deletion error: ' . $e->getMessage(), [
+            Log::error('Temp directory deletion error: '.$e->getMessage(), [
                 'uuid' => $uuid,
                 'user_id' => Auth::check() ? Auth::id() : null,
-                'exception' => $e->getTraceAsString()
+                'exception' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => __('filex::translations.delete_error'),
                 'error_type' => 'server_error',
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ], 500);
         }
     }
@@ -760,12 +770,12 @@ class FilexController extends Controller
      */
     protected function validateBasicUpload(Request $request): array
     {
-        if (!$request->hasFile('file')) {
+        if (! $request->hasFile('file')) {
             return ['valid' => false, 'message' => __('filex::translations.no_file_selected')];
         }
 
         $file = $request->file('file');
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             $error = $file->getError();
             $errorMessage = match ($error) {
                 UPLOAD_ERR_INI_SIZE => __('filex::translations.exceeds_server_max'),
@@ -786,9 +796,10 @@ class FilexController extends Controller
         if ($file->getSize() > $limits['effective_limit']) {
             $maxSizeMB = round($limits['effective_limit'] / (1024 * 1024), 2);
             $fileSizeMB = round($file->getSize() / (1024 * 1024), 2);
+
             return [
                 'valid' => false,
-                'message' => __('filex::translations.file_too_large_limit', ['size' => $fileSizeMB, 'max' => $maxSizeMB])
+                'message' => __('filex::translations.file_too_large_limit', ['size' => $fileSizeMB, 'max' => $maxSizeMB]),
             ];
         }
 
@@ -811,8 +822,9 @@ class FilexController extends Controller
 
         // Defer expensive validation until after storage
         $validation = $this->filexService->validateDeferred($tempPath, $originalFileName);
-        if (!$validation['valid']) {
+        if (! $validation['valid']) {
             $this->getTempDisk()->delete($tempPath);
+
             return $this->errorResponse($validation['message'], 422);
         }
 
@@ -835,7 +847,7 @@ class FilexController extends Controller
             'mime_type' => $file->getMimeType(),
             'upload_type' => 'single',
             'message' => __('filex::translations.upload_success'),
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -854,19 +866,19 @@ class FilexController extends Controller
                 'max_chunk_size' => ConfigHelper::get('upload.chunk.size', 1048576),
                 'max_parallel_uploads' => ConfigHelper::get('performance.parallel_uploads', 2),
                 'supported_formats' => ConfigHelper::getAllowedExtensions(),
-                'chunked_upload_threshold_mb' => round(ConfigHelper::get('performance.chunk_threshold', 50 * 1024 * 1024) / (1024 * 1024), 2)
+                'chunked_upload_threshold_mb' => round(ConfigHelper::get('performance.chunk_threshold', 50 * 1024 * 1024) / (1024 * 1024), 2),
             ],
             'rate_limiting' => [
                 'enabled' => ConfigHelper::get('performance.rate_limiting.enabled', false),
                 'requests_per_minute' => ConfigHelper::get('performance.rate_limiting.ip_limit', 50),
-                'user_requests_per_hour' => ConfigHelper::get('performance.rate_limiting.user_limit', 100)
+                'user_requests_per_hour' => ConfigHelper::get('performance.rate_limiting.user_limit', 100),
             ],
             'server_status' => [
                 'disk_space_available' => $this->checkDiskSpace(),
                 'memory_available' => ByteHelper::formatBytes(memory_get_usage(true)),
-                'temp_directory_writable' => is_writable(storage_path('app/temp'))
+                'temp_directory_writable' => is_writable(storage_path('app/temp')),
             ],
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -880,7 +892,8 @@ class FilexController extends Controller
 
         if (function_exists('disk_free_space')) {
             $freeBytes = disk_free_space($path);
-            return $freeBytes ? ByteHelper::formatBytes((int)$freeBytes) : 'Unknown';
+
+            return $freeBytes ? ByteHelper::formatBytes((int) $freeBytes) : 'Unknown';
         }
 
         return 'Unknown';
@@ -894,7 +907,7 @@ class FilexController extends Controller
         $response = [
             'success' => false,
             'message' => $message,
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ];
 
         if ($errorType) {
@@ -929,12 +942,12 @@ class FilexController extends Controller
      */
     protected function handleUploadError(\Exception $e, $request): JsonResponse
     {
-        Log::error('File upload error: ' . $e->getMessage(), [
+        Log::error('File upload error: '.$e->getMessage(), [
             'exception' => $e,
             'request' => $request->all(),
             'user_id' => Auth::id(),
             'ip_address' => $request->ip(),
-            'user_agent' => $request->userAgent()
+            'user_agent' => $request->userAgent(),
         ]);
 
         // Determine error type based on exception
@@ -970,10 +983,11 @@ class FilexController extends Controller
         $limit = ini_get('memory_limit');
         if ($limit === '-1') {
             self::$memoryLimit = PHP_INT_MAX;
+
             return self::$memoryLimit;
         }
 
-        $value = (int)$limit;
+        $value = (int) $limit;
         $unit = strtolower(substr($limit, -1));
 
         switch ($unit) {
@@ -986,6 +1000,7 @@ class FilexController extends Controller
         }
 
         self::$memoryLimit = $value;
+
         return self::$memoryLimit;
     }
 
@@ -1005,13 +1020,13 @@ class FilexController extends Controller
             Log::warning('Critical memory usage during upload', [
                 'usage' => ByteHelper::formatBytes($usage),
                 'limit' => ByteHelper::formatBytes($limit),
-                'percentage' => round($percentage, 2)
+                'percentage' => round($percentage, 2),
             ]);
         } elseif ($percentage > 75) {
             // Warning: Trigger garbage collection
             gc_collect_cycles();
             Log::info('High memory usage during upload', [
-                'usage' => ByteHelper::formatBytes($usage)
+                'usage' => ByteHelper::formatBytes($usage),
             ]);
         }
     }
@@ -1032,14 +1047,16 @@ class FilexController extends Controller
         $source = fopen($sourcePath, 'rb');
         $target = fopen($targetPath, 'wb');
 
-        if (!$source || !$target) {
+        if (! $source || ! $target) {
             throw new \RuntimeException('Could not open files for streaming');
         }
 
         try {
-            while (!feof($source)) {
+            while (! feof($source)) {
                 $buffer = fread($source, $bufferSize);
-                if ($buffer === false) break;
+                if ($buffer === false) {
+                    break;
+                }
 
                 $written = fwrite($target, $buffer);
                 if ($written === false) {
@@ -1061,8 +1078,12 @@ class FilexController extends Controller
                 }
             }
         } finally {
-            if ($source) fclose($source);
-            if ($target) fclose($target);
+            if ($source) {
+                fclose($source);
+            }
+            if ($target) {
+                fclose($target);
+            }
         }
 
         // Verify file size
@@ -1092,7 +1113,8 @@ class FilexController extends Controller
         }
 
         // Adjust based on available memory (max 5% of available)
-        $maxBuffer = (int)($availableMemory * 0.05);
+        $maxBuffer = (int) ($availableMemory * 0.05);
+
         return min($baseSize, $maxBuffer);
     }
 
@@ -1113,7 +1135,7 @@ class FilexController extends Controller
      */
     public function getPerformanceMetrics(): JsonResponse
     {
-        if (!config('app.debug')) {
+        if (! config('app.debug')) {
             return response()->json(['error' => __('filex::translations.not_available_production')], 403);
         }
 
@@ -1138,7 +1160,7 @@ class FilexController extends Controller
                 ],
                 'performance_timers' => PerformanceMonitor::getMetrics(),
             ],
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -1172,11 +1194,11 @@ class FilexController extends Controller
             'total_size' => $totalSize,
             'percentage' => round(($bytesWritten / $totalSize) * 100, 2),
             'memory_usage' => ByteHelper::formatBytes(memory_get_usage(true)),
-            'timestamp' => microtime(true)
+            'timestamp' => microtime(true),
         ];
 
         Cache::put(
-            'upload_progress_' . request()->input('dzuuid'),
+            'upload_progress_'.request()->input('dzuuid'),
             $progress,
             now()->addMinutes(5)
         );
@@ -1191,7 +1213,7 @@ class FilexController extends Controller
             'memory_usage' => ByteHelper::formatBytes(memory_get_usage(true)),
             'memory_peak' => ByteHelper::formatBytes(memory_get_peak_usage(true)),
             'system_load' => sys_getloadavg()[0],
-            'timestamp' => (int)microtime(true)
+            'timestamp' => (int) microtime(true),
         ];
     }
 
@@ -1213,9 +1235,9 @@ class FilexController extends Controller
             'chunk_index' => $chunkIndex + 1,
             'total_chunks' => $totalChunks,
             'size' => ByteHelper::formatBytes($size),
-            'duration' => $duration . 's',
+            'duration' => $duration.'s',
             'memory_used' => ByteHelper::formatBytes($memoryUsed),
-            'throughput' => ByteHelper::formatBytes((int)($size / $duration)) . '/s'
+            'throughput' => ByteHelper::formatBytes((int) ($size / $duration)).'/s',
         ]);
     }
 
@@ -1225,7 +1247,7 @@ class FilexController extends Controller
     private function getUploadedChunksCount(string $tempDir): int
     {
         return collect($this->getTempDisk()->files($tempDir))
-            ->filter(fn($file) => str_contains($file, 'chunk_'))
+            ->filter(fn ($file) => str_contains($file, 'chunk_'))
             ->count();
     }
 
@@ -1244,7 +1266,7 @@ class FilexController extends Controller
 
             // Generate final filename
             $finalFileName = $this->filexService->generateFileName($originalFileName);
-            $finalPath = 'temp/' . $finalFileName;
+            $finalPath = 'temp/'.$finalFileName;
 
             // Merge chunks with optimized streaming
             $this->mergeChunksStreaming($tempDir, $finalPath, $totalChunks);
@@ -1254,13 +1276,14 @@ class FilexController extends Controller
 
             // Validate merged file
             $validation = $this->filexService->validateTemp($finalPath, $originalFileName);
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 $this->getTempDisk()->delete($finalPath);
+
                 return response()->json([
                     'success' => false,
                     'message' => $validation['message'],
                     'error_type' => 'validation_error',
-                    'timestamp' => now()->toIso8601String()
+                    'timestamp' => now()->toIso8601String(),
                 ], 422);
             }
 
@@ -1270,7 +1293,7 @@ class FilexController extends Controller
                 'uploaded_at' => now(),
                 'user_id' => Auth::id(),
                 'session_id' => session()->getId(),
-                'upload_metrics' => $this->getUploadMetrics()
+                'upload_metrics' => $this->getUploadMetrics(),
             ]);
 
             // Log final metrics
@@ -1291,7 +1314,7 @@ class FilexController extends Controller
                 'upload_type' => 'chunked',
                 'total_chunks' => $totalChunks,
                 'metrics' => $this->getUploadMetrics(),
-                'timestamp' => now()->toIso8601String()
+                'timestamp' => now()->toIso8601String(),
             ]);
         } catch (\Exception $e) {
             // Clean up on error
@@ -1302,7 +1325,7 @@ class FilexController extends Controller
 
             Log::error('Chunk merge error', [
                 'error' => $e->getMessage(),
-                'total_chunks' => $totalChunks
+                'total_chunks' => $totalChunks,
             ]);
 
             return $this->errorResponse(
@@ -1325,7 +1348,7 @@ class FilexController extends Controller
         Log::error('Chunk upload error', [
             'path' => $chunkPath,
             'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
+            'trace' => $e->getTraceAsString(),
         ]);
     }
 }

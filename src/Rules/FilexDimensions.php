@@ -2,9 +2,9 @@
 
 namespace DevWizard\Filex\Rules;
 
+use Closure;
 use DevWizard\Filex\Services\FilexService;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Closure;
 
 /**
  * Filex image dimensions validation rule
@@ -14,6 +14,7 @@ use Closure;
 class FilexDimensions implements ValidationRule
 {
     protected $constraints;
+
     protected $filexService;
 
     public function __construct(string $dimensions)
@@ -24,14 +25,16 @@ class FilexDimensions implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (!is_string($value) || !str_starts_with($value, 'temp/')) {
+        if (! is_string($value) || ! str_starts_with($value, 'temp/')) {
             $fail(__('filex::validation.temp_file'));
+
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
-        if (!$tempDisk->exists($value)) {
+        if (! $tempDisk->exists($value)) {
             $fail(__('filex::validation.file_not_found'));
+
             return;
         }
 
@@ -41,6 +44,7 @@ class FilexDimensions implements ValidationRule
         $imageInfo = @getimagesize($filePath);
         if ($imageInfo === false) {
             $fail(__('filex::validation.must_be_image'));
+
             return;
         }
 
@@ -52,36 +56,42 @@ class FilexDimensions implements ValidationRule
                 case 'min_width':
                     if ($width < $value) {
                         $fail(__('filex::validation.min_width', ['value' => $value]));
+
                         return;
                     }
                     break;
                 case 'max_width':
                     if ($width > $value) {
                         $fail(__('filex::validation.max_width', ['value' => $value]));
+
                         return;
                     }
                     break;
                 case 'min_height':
                     if ($height < $value) {
                         $fail(__('filex::validation.min_height', ['value' => $value]));
+
                         return;
                     }
                     break;
                 case 'max_height':
                     if ($height > $value) {
                         $fail(__('filex::validation.max_height', ['value' => $value]));
+
                         return;
                     }
                     break;
                 case 'width':
                     if ($width != $value) {
                         $fail(__('filex::validation.exact_width', ['value' => $value]));
+
                         return;
                     }
                     break;
                 case 'height':
                     if ($height != $value) {
                         $fail(__('filex::validation.exact_height', ['value' => $value]));
+
                         return;
                     }
                     break;
@@ -89,6 +99,7 @@ class FilexDimensions implements ValidationRule
                     $actualRatio = $width / $height;
                     if (abs($actualRatio - $value) > 0.01) {
                         $fail(__('filex::validation.aspect_ratio', ['value' => $value]));
+
                         return;
                     }
                     break;

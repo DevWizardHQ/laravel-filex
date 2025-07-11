@@ -2,13 +2,14 @@
 
 namespace DevWizard\Filex\Services;
 
-use Illuminate\Support\Facades\Log;
 use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class PerformanceMonitor
 {
     private static array $metrics = [];
+
     private static array $timers = [];
 
     /**
@@ -26,11 +27,11 @@ class PerformanceMonitor
      */
     public static function endTimer(string $key, array $context = []): float
     {
-        if (!config('filex.performance.monitoring.enable_metrics', false)) {
+        if (! config('filex.performance.monitoring.enable_metrics', false)) {
             return 0.0;
         }
 
-        if (!isset(self::$timers[$key])) {
+        if (! isset(self::$timers[$key])) {
             return 0.0;
         }
 
@@ -47,7 +48,7 @@ class PerformanceMonitor
      */
     public static function logMetric(string $key, float $value, array $context = []): void
     {
-        if (!config('filex.performance.monitoring.enable_metrics', false)) {
+        if (! config('filex.performance.monitoring.enable_metrics', false)) {
             return;
         }
 
@@ -57,7 +58,7 @@ class PerformanceMonitor
             'timestamp' => now()->toISOString(),
             'memory_usage' => memory_get_usage(true),
             'memory_peak' => memory_get_peak_usage(true),
-            'context' => $context
+            'context' => $context,
         ];
 
         self::$metrics[] = $metric;
@@ -68,7 +69,7 @@ class PerformanceMonitor
         }
 
         // Store in cache for analytics
-        $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
+        $cacheKey = 'filex_metrics_'.date('Y-m-d-H');
         $cached = Cache::get($cacheKey, []);
         $cached[] = $metric;
 
@@ -103,7 +104,7 @@ class PerformanceMonitor
      */
     public static function getAggregatedMetrics(): array
     {
-        $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
+        $cacheKey = 'filex_metrics_'.date('Y-m-d-H');
         $metrics = Cache::get($cacheKey, []);
 
         if (empty($metrics)) {
@@ -115,14 +116,14 @@ class PerformanceMonitor
         foreach ($metrics as $metric) {
             $key = $metric['key'];
 
-            if (!isset($aggregated[$key])) {
+            if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'count' => 0,
                     'total_time' => 0,
                     'avg_time' => 0,
                     'min_time' => PHP_FLOAT_MAX,
                     'max_time' => 0,
-                    'memory_usage' => []
+                    'memory_usage' => [],
                 ];
             }
 
@@ -151,7 +152,7 @@ class PerformanceMonitor
                 'context' => $context,
                 'memory_usage' => $memoryUsage,
                 'memory_limit' => $memoryLimit,
-                'memory_percent' => $memoryPercent
+                'memory_percent' => $memoryPercent,
             ]);
 
             // Force garbage collection

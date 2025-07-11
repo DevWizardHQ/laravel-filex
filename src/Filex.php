@@ -50,6 +50,7 @@ class Filex
     public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): FilexResult
     {
         $results = $this->service->moveFiles($tempPaths, $targetDirectory, $disk);
+
         return new FilexResult($results);
     }
 
@@ -59,6 +60,7 @@ class Filex
     public function moveFile(string $tempPath, string $targetDirectory, ?string $disk = null): FilexResult
     {
         $results = $this->service->moveFiles([$tempPath], $targetDirectory, $disk);
+
         return new FilexResult($results);
     }
 

@@ -335,7 +335,7 @@ return [
             'include',
             'require',
             'include_once',
-            'require_once'
+            'require_once',
         ],
 
         /*
@@ -380,7 +380,7 @@ return [
             'htaccess',
             'htpasswd',
             'ini',
-            'conf'
+            'conf',
         ],
 
         /*
@@ -419,7 +419,7 @@ return [
             'window.location',
             'alert(',
             'confirm(',
-            'prompt('
+            'prompt(',
         ],
 
         /*
@@ -517,8 +517,8 @@ return [
             "\x4D\x5A",           // PE/EXE files (MZ header)
             "\x7FELF",            // ELF files (Linux executables)
             "\xCF\xFA\xED\xFE",   // Mach-O files (macOS executables)
-            "#!/bin/",            // Shell scripts
-            "#!/usr/bin/",        // Shell scripts
+            '#!/bin/',            // Shell scripts
+            '#!/usr/bin/',        // Shell scripts
             "#!\x20/bin/",        // Shell scripts with space
             "#!\x09/bin/",        // Shell scripts with tab
         ],
@@ -556,9 +556,8 @@ return [
             'log',
             'md',
             'yml',
-            'yaml'
+            'yaml',
         ],
-
 
     ],
 

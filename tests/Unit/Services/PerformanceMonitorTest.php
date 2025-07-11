@@ -94,7 +94,7 @@ class PerformanceMonitorTest extends TestCase
 
     public function test_metrics_are_cached()
     {
-        $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
+        $cacheKey = 'filex_metrics_'.date('Y-m-d-H');
 
         // Override the default mock for this test
         Cache::spy();
@@ -120,7 +120,7 @@ class PerformanceMonitorTest extends TestCase
 
     public function test_get_aggregated_metrics_returns_correct_format()
     {
-        $cacheKey = 'filex_metrics_' . date('Y-m-d-H');
+        $cacheKey = 'filex_metrics_'.date('Y-m-d-H');
 
         // Mock cached metrics
         $mockMetrics = [
@@ -130,7 +130,7 @@ class PerformanceMonitorTest extends TestCase
                 'timestamp' => now()->toISOString(),
                 'memory_usage' => 1000000,
                 'memory_peak' => 2000000,
-                'context' => []
+                'context' => [],
             ],
             [
                 'key' => 'operation_1',
@@ -138,7 +138,7 @@ class PerformanceMonitorTest extends TestCase
                 'timestamp' => now()->toISOString(),
                 'memory_usage' => 1100000,
                 'memory_peak' => 2100000,
-                'context' => []
+                'context' => [],
             ],
             [
                 'key' => 'operation_2',
@@ -146,8 +146,8 @@ class PerformanceMonitorTest extends TestCase
                 'timestamp' => now()->toISOString(),
                 'memory_usage' => 1200000,
                 'memory_peak' => 2200000,
-                'context' => []
-            ]
+                'context' => [],
+            ],
         ];
 
         // Override the default mock for this test

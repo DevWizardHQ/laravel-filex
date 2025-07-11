@@ -68,7 +68,7 @@ class RouteTest extends TestCase
             'filex.upload.temp.optimized',
             'filex.temp.delete',
             'filex.temp.info',
-            'filex.config'
+            'filex.config',
         ];
 
         foreach ($requiredRoutes as $routeName) {

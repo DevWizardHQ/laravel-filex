@@ -23,6 +23,7 @@ class CleanupTempFilesCommand extends Command
      * @var string
      */
     protected $description = 'Clean up expired temporary files and quarantined files';
+
     protected $filexService;
 
     /**
@@ -42,6 +43,7 @@ class CleanupTempFilesCommand extends Command
         $quarantineOnly = $this->option('quarantine-only');
         if ($quarantineOnly) {
             $this->info('Starting quarantine cleanup...');
+
             return $this->handleQuarantineCleanup();
         }
         $this->info('Starting temporary file cleanup...');
@@ -55,15 +57,17 @@ class CleanupTempFilesCommand extends Command
                 $this->displayDryRunResults($results, 'temporary');
                 $quarantineResults = $this->filexService->cleanupQuarantine();
                 $this->displayDryRunResults($quarantineResults, 'quarantined');
+
                 return self::SUCCESS;
             }
             // Ask for confirmation unless force flag is used
-            if (!$this->option('force') && $results['cleaned_count'] > 0) {
+            if (! $this->option('force') && $results['cleaned_count'] > 0) {
                 $confirmed = $this->confirm(
                     "Are you sure you want to delete {$results['cleaned_count']} temporary files?"
                 );
-                if (!$confirmed) {
+                if (! $confirmed) {
                     $this->info('Cleanup cancelled.');
+
                     return self::SUCCESS;
                 }
             }
@@ -74,9 +78,11 @@ class CleanupTempFilesCommand extends Command
             $this->info('Starting quarantine cleanup...');
             $quarantineResults = $this->filexService->cleanupQuarantine();
             $this->displayResults($quarantineResults, 'quarantined files');
+
             return self::SUCCESS;
         } catch (\Exception $e) {
             $this->error("Cleanup failed: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }
@@ -95,25 +101,29 @@ class CleanupTempFilesCommand extends Command
 
             if ($this->option('dry-run')) {
                 $this->displayDryRunResults($results, 'quarantined');
+
                 return self::SUCCESS;
             }
 
             // Ask for confirmation unless force flag is used
-            if (!$this->option('force') && $results['cleaned_count'] > 0) {
+            if (! $this->option('force') && $results['cleaned_count'] > 0) {
                 $confirmed = $this->confirm(
                     "Are you sure you want to delete {$results['cleaned_count']} quarantined files?"
                 );
 
-                if (!$confirmed) {
+                if (! $confirmed) {
                     $this->info('Cleanup cancelled.');
+
                     return self::SUCCESS;
                 }
             }
 
             $this->displayResults($results, 'quarantined files');
+
             return self::SUCCESS;
         } catch (\Exception $e) {
             $this->error("Cleanup failed: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }

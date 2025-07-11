@@ -2,10 +2,8 @@
 
 namespace DevWizard\Filex\Tests\Commands;
 
-use DevWizard\Filex\Commands\InstallCommand;
 use DevWizard\Filex\Tests\TestCase;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\Attributes\Test;
 
 class InstallCommandTest extends TestCase
@@ -13,7 +11,7 @@ class InstallCommandTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // Clean up any existing published files
         $this->cleanupPublishedFiles();
     }
@@ -22,7 +20,7 @@ class InstallCommandTest extends TestCase
     {
         // Clean up after tests
         $this->cleanupPublishedFiles();
-        
+
         parent::tearDown();
     }
 
@@ -82,7 +80,7 @@ class InstallCommandTest extends TestCase
     {
         // Create a fake config file
         File::put(config_path('filex.php'), '<?php return [];');
-        
+
         // Create fake asset files
         File::ensureDirectoryExists(public_path('vendor/filex/css'));
         File::put(public_path('vendor/filex/css/filex.css'), '/* existing css */');

@@ -6,12 +6,13 @@ use DevWizard\Filex\Filex;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Tests\TestCase;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 class FilexTest extends TestCase
 {
     protected Filex $filex;
+
     protected FilexService $service;
 
     protected function setUp(): void
@@ -140,7 +141,7 @@ class FilexTest extends TestCase
             'moveFiles',
             'moveFile',
             'cleanup',
-            'service'
+            'service',
         ];
 
         foreach ($methods as $method) {

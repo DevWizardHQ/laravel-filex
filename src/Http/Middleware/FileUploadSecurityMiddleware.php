@@ -34,49 +34,50 @@ class FileUploadSecurityMiddleware
     {
         try {
             // Basic security checks
-            if (!$this->validateBasicSecurity($request)) {
+            if (! $this->validateBasicSecurity($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.security_validation_failed'),
-                    'error_type' => 'security_error'
+                    'error_type' => 'security_error',
                 ], 403);
             }
 
             // Rate limiting with adaptive thresholds
-            if (!$this->checkRateLimits($request)) {
+            if (! $this->checkRateLimits($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.rate_limit_exceeded'),
                     'error_type' => 'rate_limit_error',
-                    'retry_after' => $this->getRetryAfter($request)
+                    'retry_after' => $this->getRetryAfter($request),
                 ], 429);
             }
 
             // Content type validation
-            if (!$this->validateContentType($request)) {
+            if (! $this->validateContentType($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.invalid_content_type'),
-                    'error_type' => 'content_type_error'
+                    'error_type' => 'content_type_error',
                 ], 415);
             }
 
             // Header validation
-            if (!$this->validateHeaders($request)) {
+            if (! $this->validateHeaders($request)) {
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.invalid_headers'),
-                    'error_type' => 'header_error'
+                    'error_type' => 'header_error',
                 ], 400);
             }
 
             // Check for suspicious patterns
             if ($this->detectSuspiciousPatterns($request)) {
                 $this->logSuspiciousActivity($request);
+
                 return response()->json([
                     'success' => false,
                     'message' => __('filex::translations.suspicious_activity_detected'),
-                    'error_type' => 'security_error'
+                    'error_type' => 'security_error',
                 ], 403);
             }
 
@@ -84,13 +85,13 @@ class FileUploadSecurityMiddleware
         } catch (\Exception $e) {
             Log::error('Security middleware error', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => __('filex::translations.security_check_failed'),
-                'error_type' => 'security_error'
+                'error_type' => 'security_error',
             ], 500);
         }
     }
@@ -101,7 +102,7 @@ class FileUploadSecurityMiddleware
     private function validateBasicSecurity(Request $request): bool
     {
         // Validate request method
-        if (!in_array($request->method(), ['POST', 'DELETE'])) {
+        if (! in_array($request->method(), ['POST', 'DELETE'])) {
             return false;
         }
 
@@ -116,7 +117,7 @@ class FileUploadSecurityMiddleware
         if ($filePath && (
             str_contains($filePath, '..') ||
             str_contains($filePath, '/') ||
-            !preg_match('/^[a-zA-Z0-9_\-\.]+$/', $filePath)
+            ! preg_match('/^[a-zA-Z0-9_\-\.]+$/', $filePath)
         )) {
             return false;
         }
@@ -162,7 +163,7 @@ class FileUploadSecurityMiddleware
             $sessionId = '';
         }
 
-        return 'filex_upload:' . md5($ip . $sessionId);
+        return 'filex_upload:'.md5($ip.$sessionId);
     }
 
     /**
@@ -174,9 +175,9 @@ class FileUploadSecurityMiddleware
         $baseLimit = ConfigHelper::getRateLimitMaxAttempts();
 
         if ($load > 2.0) {
-            return (int)($baseLimit * 0.5); // 50% reduction
+            return (int) ($baseLimit * 0.5); // 50% reduction
         } elseif ($load > 1.0) {
-            return (int)($baseLimit * 0.75); // 25% reduction
+            return (int) ($baseLimit * 0.75); // 25% reduction
         }
 
         return $baseLimit;
@@ -196,6 +197,7 @@ class FileUploadSecurityMiddleware
     private function getRetryAfter(Request $request): int
     {
         $key = $this->getRateLimitKey($request);
+
         return RateLimiter::availableIn($key);
     }
 
@@ -205,7 +207,7 @@ class FileUploadSecurityMiddleware
     private function adjustRateLimits(): void
     {
         $cacheKey = 'filex_rate_limit_adjustment';
-        if (!Cache::has($cacheKey)) {
+        if (! Cache::has($cacheKey)) {
             $load = sys_getloadavg()[0];
             $memoryUsage = memory_get_usage(true);
             $memoryLimit = $this->getMemoryLimit();
@@ -241,7 +243,7 @@ class FileUploadSecurityMiddleware
             return PHP_INT_MAX;
         }
 
-        $value = (int)$limit;
+        $value = (int) $limit;
         $unit = strtolower(substr($limit, -1));
 
         switch ($unit) {
@@ -280,7 +282,7 @@ class FileUploadSecurityMiddleware
         // Required headers
         $requiredHeaders = ['Host', 'User-Agent'];
         foreach ($requiredHeaders as $header) {
-            if (!$request->header($header)) {
+            if (! $request->header($header)) {
                 return false;
             }
         }
@@ -302,7 +304,7 @@ class FileUploadSecurityMiddleware
     private function detectSuspiciousPatterns(Request $request): bool
     {
         // Skip detection if disabled in config
-        if (!ConfigHelper::isSuspiciousDetectionEnabled()) {
+        if (! ConfigHelper::isSuspiciousDetectionEnabled()) {
             return false;
         }
 
@@ -335,7 +337,7 @@ class FileUploadSecurityMiddleware
             foreach ($suspiciousPatterns as $pattern) {
                 // Use preg_quote to safely escape the pattern
                 $escapedPattern = preg_quote($pattern, '/');
-                if (preg_match('/' . $escapedPattern . '/i', implode(' ', $header))) {
+                if (preg_match('/'.$escapedPattern.'/i', implode(' ', $header))) {
                     return true;
                 }
             }
@@ -356,7 +358,7 @@ class FileUploadSecurityMiddleware
             'path' => $request->path(),
             'headers' => $request->headers->all(),
             'input' => $request->except(['file']),
-            'timestamp' => now()->toIso8601String()
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 }

@@ -3,8 +3,8 @@
 namespace DevWizard\Filex\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 
 class InstallCommand extends Command
 {
@@ -34,16 +34,16 @@ class InstallCommand extends Command
     protected $assets = [
         'config' => [
             'path' => 'config/filex.php',
-            'description' => 'Configuration file'
+            'description' => 'Configuration file',
         ],
         'css' => [
             'public/vendor/filex/css/dropzone.min.css' => 'Dropzone CSS library',
-            'public/vendor/filex/css/filex.css' => 'Filex component styles'
+            'public/vendor/filex/css/filex.css' => 'Filex component styles',
         ],
         'js' => [
             'public/vendor/filex/js/dropzone.min.js' => 'Dropzone JavaScript library',
-            'public/vendor/filex/js/filex.js' => 'Filex component logic'
-        ]
+            'public/vendor/filex/js/filex.js' => 'Filex component logic',
+        ],
     ];
 
     /**
@@ -52,8 +52,8 @@ class InstallCommand extends Command
     public function handle()
     {
         $auto = $this->option('auto');
-        
-        if (!$auto) {
+
+        if (! $auto) {
             $this->info('🚀 Installing Laravel Filex...');
         }
 
@@ -63,20 +63,21 @@ class InstallCommand extends Command
         $onlyAssets = $this->option('only-assets');
 
         // Determine what to publish
-        $publishConfig = !$onlyAssets;
-        $publishAssets = !$onlyConfig;
+        $publishConfig = ! $onlyAssets;
+        $publishAssets = ! $onlyConfig;
 
         $existingFiles = $this->checkExistingFiles();
 
         // Show what will be published
-        if (!$auto) {
+        if (! $auto) {
             $this->showPublishPlan($publishConfig, $publishAssets, $existingFiles);
         }
 
         // Check for existing files and ask for confirmation if needed
         $relevantExistingFiles = $this->getRelevantExistingFiles($existingFiles, $publishConfig, $publishAssets);
-        if (!$force && !$auto && !empty($relevantExistingFiles) && !$this->confirmOverwrite($relevantExistingFiles)) {
+        if (! $force && ! $auto && ! empty($relevantExistingFiles) && ! $this->confirmOverwrite($relevantExistingFiles)) {
             $this->warn('Installation cancelled.');
+
             return Command::FAILURE;
         }
 
@@ -91,7 +92,7 @@ class InstallCommand extends Command
         }
 
         // Show completion message
-        if (!$auto) {
+        if (! $auto) {
             $this->showCompletionMessage($publishConfig, $publishAssets);
         }
 
@@ -100,8 +101,6 @@ class InstallCommand extends Command
 
     /**
      * Check for existing files
-     *
-     * @return array
      */
     protected function checkExistingFiles(): array
     {
@@ -120,7 +119,7 @@ class InstallCommand extends Command
                     $existing['assets'][] = [
                         'path' => $path,
                         'description' => $description,
-                        'fullPath' => $fullPath
+                        'fullPath' => $fullPath,
                     ];
                 }
             }
@@ -131,10 +130,6 @@ class InstallCommand extends Command
 
     /**
      * Show what will be published
-     *
-     * @param bool $publishConfig
-     * @param bool $publishAssets
-     * @param array $existingFiles
      */
     protected function showPublishPlan(bool $publishConfig, bool $publishAssets, array $existingFiles): void
     {
@@ -146,7 +141,7 @@ class InstallCommand extends Command
         if ($publishAssets) {
             $newCount = 0;
             $updateCount = 0;
-            
+
             foreach (['css', 'js'] as $type) {
                 foreach ($this->assets[$type] as $path => $description) {
                     $exists = collect($existingFiles['assets'] ?? [])->contains('path', $path);
@@ -157,7 +152,7 @@ class InstallCommand extends Command
                     }
                 }
             }
-            
+
             if ($newCount > 0 && $updateCount > 0) {
                 $this->line("📦 Assets: {$newCount} new, {$updateCount} updates → public/vendor/filex/");
             } elseif ($newCount > 0) {
@@ -172,42 +167,41 @@ class InstallCommand extends Command
 
     /**
      * Ask user for confirmation to overwrite existing files
-     *
-     * @param array $existingFiles
-     * @return bool
      */
     protected function confirmOverwrite(array $existingFiles): bool
     {
         $fileCount = 0;
-        if (isset($existingFiles['config'])) $fileCount++;
-        if (isset($existingFiles['assets'])) $fileCount += count($existingFiles['assets']);
+        if (isset($existingFiles['config'])) {
+            $fileCount++;
+        }
+        if (isset($existingFiles['assets'])) {
+            $fileCount += count($existingFiles['assets']);
+        }
 
         $this->warn("⚠️  {$fileCount} files already exist.");
-        
+
         return $this->confirm('Overwrite existing files?', false);
     }
 
     /**
      * Publish the configuration file
-     *
-     * @param bool $force
      */
     protected function publishConfiguration(bool $force): void
     {
         try {
             $params = ['--provider' => 'DevWizard\Filex\FilexServiceProvider', '--tag' => 'filex-config'];
-            
+
             if ($force) {
                 $params['--force'] = true;
             }
 
             Artisan::call('vendor:publish', $params);
-            
-            if (!$this->option('auto')) {
+
+            if (! $this->option('auto')) {
                 $this->line('✅ Config published');
             }
         } catch (\Exception $e) {
-            if (!$this->option('auto')) {
+            if (! $this->option('auto')) {
                 $this->error("❌ Config failed: {$e->getMessage()}");
             }
         }
@@ -215,25 +209,23 @@ class InstallCommand extends Command
 
     /**
      * Publish the asset files
-     *
-     * @param bool $force
      */
     protected function publishAssets(bool $force): void
     {
         try {
             $params = ['--provider' => 'DevWizard\Filex\FilexServiceProvider', '--tag' => 'filex-assets'];
-            
+
             if ($force) {
                 $params['--force'] = true;
             }
 
             Artisan::call('vendor:publish', $params);
-            
-            if (!$this->option('auto')) {
+
+            if (! $this->option('auto')) {
                 $this->line('✅ Assets published');
             }
         } catch (\Exception $e) {
-            if (!$this->option('auto')) {
+            if (! $this->option('auto')) {
                 $this->error("❌ Assets failed: {$e->getMessage()}");
             }
         }
@@ -241,16 +233,13 @@ class InstallCommand extends Command
 
     /**
      * Show completion message with next steps
-     *
-     * @param bool $publishedConfig
-     * @param bool $publishedAssets
      */
     protected function showCompletionMessage(bool $publishedConfig, bool $publishedAssets): void
     {
         $this->newLine();
         $this->info('🎉 Laravel Filex installed successfully!');
         $this->newLine();
-        
+
         $this->line('Next steps:');
         if ($publishedConfig) {
             $this->line('• Configure settings in config/filex.php');
@@ -260,30 +249,25 @@ class InstallCommand extends Command
         }
         $this->line('• Use <x-filex-uploader /> in your forms');
         $this->newLine();
-        
+
         $this->line('Documentation: https://github.com/devwizardhq/laravel-filex');
     }
 
     /**
      * Get existing files relevant to what we're publishing
-     *
-     * @param array $existingFiles
-     * @param bool $publishConfig
-     * @param bool $publishAssets
-     * @return array
      */
     protected function getRelevantExistingFiles(array $existingFiles, bool $publishConfig, bool $publishAssets): array
     {
         $relevant = [];
-        
+
         if ($publishConfig && isset($existingFiles['config'])) {
             $relevant['config'] = $existingFiles['config'];
         }
-        
+
         if ($publishAssets && isset($existingFiles['assets'])) {
             $relevant['assets'] = $existingFiles['assets'];
         }
-        
+
         return $relevant;
     }
 }

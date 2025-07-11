@@ -24,18 +24,18 @@ class FileUploadMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // 1. Validate request has file
-        if (!$request->hasFile('file')) {
+        if (! $request->hasFile('file')) {
             return response()->json([
                 'success' => false,
-                'message' => 'No file provided'
+                'message' => 'No file provided',
             ], 422);
         }
 
         // 2. Basic file upload error checking
         $file = $request->file('file');
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             $error = $file->getError();
-            $errorMessage = match($error) {
+            $errorMessage = match ($error) {
                 UPLOAD_ERR_INI_SIZE => 'File exceeds the maximum allowed size configured on the server',
                 UPLOAD_ERR_FORM_SIZE => 'File exceeds the maximum allowed size for this form',
                 UPLOAD_ERR_PARTIAL => 'File was only partially uploaded. Please try again',
@@ -52,13 +52,13 @@ class FileUploadMiddleware
                 'error_code' => $error,
                 'error_message' => $errorMessage,
                 'file_name' => $file->getClientOriginalName(),
-                'file_size' => $file->getSize()
+                'file_size' => $file->getSize(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => $errorMessage,
-                'error_code' => $error
+                'error_code' => $error,
             ], 422);
         }
 

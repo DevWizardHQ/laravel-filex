@@ -2,9 +2,9 @@
 
 namespace DevWizard\Filex\Tests\Unit\Services;
 
+use DevWizard\Filex\Rules\ValidFileUpload;
 use DevWizard\Filex\Services\FileRuleService;
 use DevWizard\Filex\Tests\TestCase;
-use DevWizard\Filex\Rules\ValidFileUpload;
 
 class FileRuleServiceTest extends TestCase
 {
@@ -13,7 +13,7 @@ class FileRuleServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new FileRuleService();
+        $this->service = new FileRuleService;
     }
 
     public function test_service_can_be_instantiated()
@@ -24,24 +24,24 @@ class FileRuleServiceTest extends TestCase
     public function test_for_images_returns_valid_rule()
     {
         $rule = $this->service->forImages(10);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $allowedMimeTypesProp = $reflection->getProperty('allowedMimeTypes');
         $allowedMimeTypesProp->setAccessible(true);
         $allowedMimeTypes = $allowedMimeTypesProp->getValue($rule);
-        
+
         $maxFileSizeProp = $reflection->getProperty('maxFileSize');
         $maxFileSizeProp->setAccessible(true);
         $maxFileSize = $maxFileSizeProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('jpg');
         expect($allowedExtensions)->toContain('png');
@@ -53,20 +53,20 @@ class FileRuleServiceTest extends TestCase
     public function test_for_documents_returns_valid_rule()
     {
         $rule = $this->service->forDocuments(5);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $maxFileSizeProp = $reflection->getProperty('maxFileSize');
         $maxFileSizeProp->setAccessible(true);
         $maxFileSize = $maxFileSizeProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('pdf');
         expect($allowedExtensions)->toContain('docx');
@@ -76,20 +76,20 @@ class FileRuleServiceTest extends TestCase
     public function test_for_archives_returns_valid_rule()
     {
         $rule = $this->service->forArchives();
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $allowedMimeTypesProp = $reflection->getProperty('allowedMimeTypes');
         $allowedMimeTypesProp->setAccessible(true);
         $allowedMimeTypes = $allowedMimeTypesProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('zip');
         expect($allowedExtensions)->toContain('rar');
@@ -100,20 +100,20 @@ class FileRuleServiceTest extends TestCase
     public function test_for_audio_returns_valid_rule()
     {
         $rule = $this->service->forAudio(30);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $maxFileSizeProp = $reflection->getProperty('maxFileSize');
         $maxFileSizeProp->setAccessible(true);
         $maxFileSize = $maxFileSizeProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('mp3');
         expect($allowedExtensions)->toContain('wav');
@@ -123,20 +123,20 @@ class FileRuleServiceTest extends TestCase
     public function test_for_video_returns_valid_rule()
     {
         $rule = $this->service->forVideo(200);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $maxFileSizeProp = $reflection->getProperty('maxFileSize');
         $maxFileSizeProp->setAccessible(true);
         $maxFileSize = $maxFileSizeProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('mp4');
         expect($allowedExtensions)->toContain('avi');
@@ -146,24 +146,24 @@ class FileRuleServiceTest extends TestCase
     public function test_for_type_returns_valid_rule()
     {
         $rule = $this->service->forType('csv', 'text/csv', 2);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $allowedMimeTypesProp = $reflection->getProperty('allowedMimeTypes');
         $allowedMimeTypesProp->setAccessible(true);
         $allowedMimeTypes = $allowedMimeTypesProp->getValue($rule);
-        
+
         $maxFileSizeProp = $reflection->getProperty('maxFileSize');
         $maxFileSizeProp->setAccessible(true);
         $maxFileSize = $maxFileSizeProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('csv');
         expect($allowedMimeTypes)->toContain('text/csv');
@@ -174,26 +174,26 @@ class FileRuleServiceTest extends TestCase
     {
         $extensions = ['svg', 'eps'];
         $mimeTypes = ['image/svg+xml', 'application/postscript'];
-        
+
         $rule = $this->service->custom($extensions, $mimeTypes, 15, true);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $allowedMimeTypesProp = $reflection->getProperty('allowedMimeTypes');
         $allowedMimeTypesProp->setAccessible(true);
         $allowedMimeTypes = $allowedMimeTypesProp->getValue($rule);
-        
+
         $strictProp = $reflection->getProperty('strict');
         $strictProp->setAccessible(true);
         $strict = $strictProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toBe($extensions);
         expect($allowedMimeTypes)->toBe($mimeTypes);
@@ -204,18 +204,18 @@ class FileRuleServiceTest extends TestCase
     {
         $extensions = ['txt', 'log'];
         $mimeTypes = ['text/plain'];
-        
+
         $rule = $this->service->lenient($extensions, $mimeTypes, 1);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $strictProp = $reflection->getProperty('strict');
         $strictProp->setAccessible(true);
         $strict = $strictProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($strict)->toBeFalse();
     }
@@ -223,20 +223,20 @@ class FileRuleServiceTest extends TestCase
     public function test_for_web_returns_valid_rule()
     {
         $rule = $this->service->forWeb(5);
-        
+
         expect($rule)->toBeInstanceOf(ValidFileUpload::class);
-        
+
         // Reflection to check internal state
         $reflection = new \ReflectionClass($rule);
-        
+
         $allowedExtensionsProp = $reflection->getProperty('allowedExtensions');
         $allowedExtensionsProp->setAccessible(true);
         $allowedExtensions = $allowedExtensionsProp->getValue($rule);
-        
+
         $strictProp = $reflection->getProperty('strict');
         $strictProp->setAccessible(true);
         $strict = $strictProp->getValue($rule);
-        
+
         // Check that the rule is configured correctly
         expect($allowedExtensions)->toContain('html');
         expect($allowedExtensions)->toContain('css');

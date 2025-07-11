@@ -22,7 +22,7 @@ trait HasFilex
      */
     protected function getFilexService(): FilexService
     {
-        if (!$this->filexService) {
+        if (! $this->filexService) {
             $this->filexService = app(FilexService::class);
         }
 
@@ -45,13 +45,13 @@ trait HasFilex
         $tempPaths = $request->input($fieldName, []);
 
         // Handle single file upload (non-array input)
-        if (!is_array($tempPaths)) {
+        if (! is_array($tempPaths)) {
             $tempPaths = $tempPaths ? [$tempPaths] : [];
         }
 
         // Validate required files
         if ($required && empty($tempPaths)) {
-            throw new \InvalidArgumentException('At least one file is required for ' . $fieldName);
+            throw new \InvalidArgumentException('At least one file is required for '.$fieldName);
         }
 
         // If no files provided, return empty array
@@ -77,16 +77,16 @@ trait HasFilex
 
         // Extract successful file paths
         $successfulPaths = array_column(
-            array_filter($results, fn($r) => $r['success']),
+            array_filter($results, fn ($r) => $r['success']),
             'finalPath'
         );
 
         // Log any failures
-        $failures = array_filter($results, fn($r) => !$r['success']);
-        if (!empty($failures)) {
+        $failures = array_filter($results, fn ($r) => ! $r['success']);
+        if (! empty($failures)) {
             Log::warning('Some files failed to process', [
                 'field' => $fieldName,
-                'failures' => $failures
+                'failures' => $failures,
             ]);
         }
 
@@ -126,14 +126,16 @@ trait HasFilex
         $filexService = $this->getFilexService();
 
         foreach ($tempPaths as $tempPath) {
-            if (!is_string($tempPath) || !str_starts_with($tempPath, 'temp/')) {
+            if (! is_string($tempPath) || ! str_starts_with($tempPath, 'temp/')) {
                 $results[] = ['valid' => false, 'message' => 'Invalid temp path format'];
+
                 continue;
             }
 
             $metadata = $filexService->getTempMeta($tempPath);
-            if (!$metadata) {
+            if (! $metadata) {
                 $results[] = ['valid' => false, 'message' => 'File metadata not found'];
+
                 continue;
             }
 
@@ -148,11 +150,6 @@ trait HasFilex
     /**
      * Process a single uploaded file
      *
-     * @param Request $request
-     * @param string $fieldName
-     * @param string $targetDirectory
-     * @param string|null $disk
-     * @param bool $required
      * @return string|null The final file path or null if no file
      */
     protected function processSingleFile(
@@ -170,7 +167,6 @@ trait HasFilex
     /**
      * Validate temporary file paths before processing
      *
-     * @param array $tempPaths
      * @return array Validation results
      */
     protected function validateFiles(array $tempPaths): array
@@ -193,14 +189,13 @@ trait HasFilex
             'invalid' => $invalidFiles,
             'total' => count($tempPaths),
             'valid_count' => count($validFiles),
-            'invalid_count' => count($invalidFiles)
+            'invalid_count' => count($invalidFiles),
         ];
     }
 
     /**
      * Get information about uploaded files
      *
-     * @param array $tempPaths
      * @return array File information
      */
     protected function getFilesInfo(array $tempPaths): array
@@ -216,7 +211,7 @@ trait HasFilex
                     'original_name' => $metadata['original_name'] ?? 'unknown',
                     'uploaded_at' => $metadata['uploaded_at'] ?? null,
                     'size' => $this->getFilexService()->getTempDisk()->size($tempPath),
-                    'metadata' => $metadata
+                    'metadata' => $metadata,
                 ];
             }
         }
@@ -227,7 +222,6 @@ trait HasFilex
     /**
      * Clean up temporary files (useful in case of validation errors)
      *
-     * @param array $tempPaths
      * @return array Cleanup results
      */
     protected function cleanupFiles(array $tempPaths): array
@@ -247,16 +241,13 @@ trait HasFilex
             'cleaned' => $cleaned,
             'failed' => $failed,
             'cleaned_count' => count($cleaned),
-            'failed_count' => count($failed)
+            'failed_count' => count($failed),
         ];
     }
 
     /**
      * Handle file upload validation rules for form requests
      *
-     * @param string $fieldName
-     * @param bool $required
-     * @param array $additionalRules
      * @return array Validation rules
      */
     protected function getValidationRules(
@@ -270,15 +261,16 @@ trait HasFilex
                 ['array'],
                 $additionalRules
             ),
-            $fieldName . '.*' => [
+            $fieldName.'.*' => [
                 'string',
                 'starts_with:temp/',
                 function ($attribute, $value, $fail) {
                     // Validate that temp file exists and belongs to current session/user
                     $metadata = $this->getFilexService()->getTempMeta($value);
 
-                    if (!$metadata) {
+                    if (! $metadata) {
                         $fail('The selected file is invalid or has expired.');
+
                         return;
                     }
 
@@ -288,8 +280,8 @@ trait HasFilex
                     if ($metadata['user_id'] !== $currentUserId && $metadata['session_id'] !== $currentSessionId) {
                         $fail('The selected file does not belong to your session.');
                     }
-                }
-            ]
+                },
+            ],
         ];
 
         return $rules;
@@ -298,8 +290,8 @@ trait HasFilex
     /**
      * Prepare file upload data for database storage
      *
-     * @param array $filePaths Final file paths after processing
-     * @param array $metadata Additional metadata to store
+     * @param  array  $filePaths  Final file paths after processing
+     * @param  array  $metadata  Additional metadata to store
      * @return array Prepared data
      */
     protected function prepareFileData(array $filePaths, array $metadata = []): array
@@ -308,18 +300,14 @@ trait HasFilex
             'files' => $filePaths,
             'file_count' => count($filePaths),
             'uploaded_at' => now(),
-            'metadata' => $metadata
+            'metadata' => $metadata,
         ];
     }
 
     /**
      * Handle bulk file operations (useful for updating existing records)
      *
-     * @param Request $request
-     * @param string $fieldName
-     * @param array $existingFiles Current files to replace
-     * @param string $targetDirectory
-     * @param string|null $disk
+     * @param  array  $existingFiles  Current files to replace
      * @return array New file paths
      */
     protected function handleBulkUpdate(
@@ -333,7 +321,7 @@ trait HasFilex
         $newFiles = $this->processFiles($request, $fieldName, $targetDirectory, $disk, false);
 
         // Clean up old files if new files were uploaded
-        if (!empty($newFiles) && !empty($existingFiles)) {
+        if (! empty($newFiles) && ! empty($existingFiles)) {
             $disk = $disk ?? config('filex.default_disk', 'public');
 
             foreach ($existingFiles as $oldFile) {
@@ -342,33 +330,28 @@ trait HasFilex
                 } catch (\Exception $e) {
                     Log::warning('Failed to delete old file during bulk update', [
                         'file' => $oldFile,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
         }
 
         // Return new files if any were uploaded, otherwise keep existing files
-        return !empty($newFiles) ? $newFiles : $existingFiles;
+        return ! empty($newFiles) ? $newFiles : $existingFiles;
     }
 
     /**
      * Check if file extension is allowed
-     *
-     * @param string $filename
-     * @return bool
      */
     protected function isAllowedExtension(string $filename): bool
     {
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
+
         return $this->getFilexService()->allowsExtension($extension);
     }
 
     /**
      * Check if MIME type is allowed
-     *
-     * @param string $mimeType
-     * @return bool
      */
     protected function isAllowedMimeType(string $mimeType): bool
     {
@@ -377,9 +360,6 @@ trait HasFilex
 
     /**
      * Format file size in human readable format
-     *
-     * @param int $bytes
-     * @return string
      */
     protected function formatFileSize(int $bytes): string
     {
@@ -388,21 +368,16 @@ trait HasFilex
 
     /**
      * Get file icon based on extension
-     *
-     * @param string $filename
-     * @return string
      */
     protected function getFileIcon(string $filename): string
     {
         $extension = pathinfo($filename, PATHINFO_EXTENSION);
+
         return $this->getFilexService()->getFileIcon($extension);
     }
 
     /**
      * Generate unique filename
-     *
-     * @param string $originalName
-     * @return string
      */
     protected function generateFileName(string $originalName): string
     {
@@ -411,10 +386,6 @@ trait HasFilex
 
     /**
      * Validate temp file
-     *
-     * @param string $tempPath
-     * @param string $originalName
-     * @return array
      */
     protected function validateTempFile(string $tempPath, string $originalName): array
     {
@@ -423,9 +394,6 @@ trait HasFilex
 
     /**
      * Get file validation errors for display
-     *
-     * @param array $tempPaths
-     * @return array
      */
     protected function getValidationErrors(array $tempPaths): array
     {
@@ -438,18 +406,18 @@ trait HasFilex
                 $originalName = $metadata['original_name'] ?? 'unknown';
                 $validation = $this->validateTempFile($tempPath, $originalName);
 
-                if (!$validation['valid']) {
+                if (! $validation['valid']) {
                     $errors[] = [
                         'temp_path' => $tempPath,
                         'original_name' => $originalName,
-                        'errors' => $validation['errors'] ?? []
+                        'errors' => $validation['errors'] ?? [],
                     ];
                 }
             } else {
                 $errors[] = [
                     'temp_path' => $tempPath,
                     'original_name' => 'unknown',
-                    'errors' => ['File not found or expired']
+                    'errors' => ['File not found or expired'],
                 ];
             }
         }
@@ -459,20 +427,16 @@ trait HasFilex
 
     /**
      * Get storage disk instance
-     *
-     * @param string|null $disk
-     * @return \Illuminate\Contracts\Filesystem\Filesystem
      */
     protected function getDisk(?string $disk = null): \Illuminate\Contracts\Filesystem\Filesystem
     {
         $disk = $disk ?? config('filex.default_disk', 'public');
+
         return \Illuminate\Support\Facades\Storage::disk($disk);
     }
 
     /**
      * Get temp storage disk instance
-     *
-     * @return \Illuminate\Contracts\Filesystem\Filesystem
      */
     protected function getTempDisk(): \Illuminate\Contracts\Filesystem\Filesystem
     {
@@ -481,8 +445,6 @@ trait HasFilex
 
     /**
      * Clean expired temp files
-     *
-     * @return array
      */
     protected function cleanupExpired(): array
     {
@@ -491,12 +453,6 @@ trait HasFilex
 
     /**
      * Move files with progress tracking
-     *
-     * @param array $tempPaths
-     * @param string $targetDirectory
-     * @param string|null $disk
-     * @param callable|null $progressCallback
-     * @return array
      */
     protected function moveFilesWithProgress(
         array $tempPaths,
@@ -519,7 +475,7 @@ trait HasFilex
                 $results[] = [
                     'success' => false,
                     'tempPath' => $tempPath,
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
                 ];
             }
         }
@@ -529,9 +485,6 @@ trait HasFilex
 
     /**
      * Get upload statistics
-     *
-     * @param array $tempPaths
-     * @return array
      */
     protected function getUploadStats(array $tempPaths): array
     {
@@ -542,7 +495,7 @@ trait HasFilex
             'invalid_files' => 0,
             'file_types' => [],
             'largest_file' => 0,
-            'smallest_file' => PHP_INT_MAX
+            'smallest_file' => PHP_INT_MAX,
         ];
 
         foreach ($tempPaths as $tempPath) {

@@ -2,10 +2,10 @@
 
 namespace DevWizard\Filex\Rules;
 
+use Closure;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Support\ByteHelper;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Closure;
 
 /**
  * Filex file size validation rule
@@ -15,6 +15,7 @@ use Closure;
 class FilexSize implements ValidationRule
 {
     protected $expectedSize;
+
     protected $filexService;
 
     public function __construct(int $expectedSize)
@@ -25,14 +26,16 @@ class FilexSize implements ValidationRule
 
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        if (!is_string($value) || !str_starts_with($value, 'temp/')) {
+        if (! is_string($value) || ! str_starts_with($value, 'temp/')) {
             $fail(__('filex::validation.temp_file'));
+
             return;
         }
 
         $tempDisk = $this->filexService->getTempDisk();
-        if (!$tempDisk->exists($value)) {
+        if (! $tempDisk->exists($value)) {
             $fail(__('filex::validation.file_not_found'));
+
             return;
         }
 

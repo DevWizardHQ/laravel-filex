@@ -2,20 +2,20 @@
 
 namespace DevWizard\Filex;
 
-use Spatie\LaravelPackageTools\Package;
-use Spatie\LaravelPackageTools\PackageServiceProvider;
-use DevWizard\Filex\Commands\FilexCommand;
 use DevWizard\Filex\Commands\CleanupTempFilesCommand;
+use DevWizard\Filex\Commands\FilexCommand;
 use DevWizard\Filex\Commands\InstallCommand;
 use DevWizard\Filex\Commands\OptimizeCommand;
-use DevWizard\Filex\Services\FilexService;
-use DevWizard\Filex\Services\FileRuleService;
-use DevWizard\Filex\Support\ConfigHelper;
 use DevWizard\Filex\Facades\FileRule;
-use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Validator;
+use DevWizard\Filex\Services\FileRuleService;
+use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\ConfigHelper;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Validator;
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class FilexServiceProvider extends PackageServiceProvider
 {
@@ -44,7 +44,7 @@ class FilexServiceProvider extends PackageServiceProvider
     {
         // Register the filex service
         $this->app->singleton(FilexService::class, function ($app) {
-            return new FilexService();
+            return new FilexService;
         });
 
         // Register the main Filex class
@@ -54,7 +54,7 @@ class FilexServiceProvider extends PackageServiceProvider
 
         // Register the FileRule service for the facade
         $this->app->singleton('filex.file-rule', function ($app) {
-            return new FileRuleService();
+            return new FileRuleService;
         });
     }
 
@@ -69,13 +69,14 @@ class FilexServiceProvider extends PackageServiceProvider
         if ($this->app->runningUnitTests()) {
             $this->registerCustomValidationRules();
             $this->registerCustomValidationMessages();
+
             return;
         }
 
         // Register custom validation rules (lazy loaded for non-test environments)
         static $rulesRegistered = false;
         $this->app->resolving('validator', function ($validator) use (&$rulesRegistered) {
-            if (!$rulesRegistered) {
+            if (! $rulesRegistered) {
                 $this->registerCustomValidationRules();
                 $this->registerCustomValidationMessages();
                 $rulesRegistered = true;
@@ -144,15 +145,15 @@ class FilexServiceProvider extends PackageServiceProvider
     {
         // Publish configuration
         $this->publishes([
-            __DIR__ . '/../config/filex.php' => config_path('filex.php'),
+            __DIR__.'/../config/filex.php' => config_path('filex.php'),
         ], 'filex-config');
 
         // Publish assets
         $this->publishes([
-            __DIR__ . '/../resources/assets/css/dropzone.min.css' => public_path('vendor/filex/css/dropzone.min.css'),
-            __DIR__ . '/../resources/assets/css/filex.css' => public_path('vendor/filex/css/filex.css'),
-            __DIR__ . '/../resources/assets/js/dropzone.min.js' => public_path('vendor/filex/js/dropzone.min.js'),
-            __DIR__ . '/../resources/assets/js/filex.js' => public_path('vendor/filex/js/filex.js'),
+            __DIR__.'/../resources/assets/css/dropzone.min.css' => public_path('vendor/filex/css/dropzone.min.css'),
+            __DIR__.'/../resources/assets/css/filex.css' => public_path('vendor/filex/css/filex.css'),
+            __DIR__.'/../resources/assets/js/dropzone.min.js' => public_path('vendor/filex/js/dropzone.min.js'),
+            __DIR__.'/../resources/assets/js/filex.js' => public_path('vendor/filex/js/filex.js'),
         ], 'filex-assets');
     }
 
@@ -165,12 +166,13 @@ class FilexServiceProvider extends PackageServiceProvider
         static $ruleCache = [];
 
         $createCachedRule = function ($ruleClass, $parameters = null) use (&$ruleCache) {
-            $key = $ruleClass . serialize($parameters);
-            if (!isset($ruleCache[$key])) {
+            $key = $ruleClass.serialize($parameters);
+            if (! isset($ruleCache[$key])) {
                 $ruleCache[$key] = $parameters !== null
-                    ? new $ruleClass(...(array)$parameters)
-                    : new $ruleClass();
+                    ? new $ruleClass(...(array) $parameters)
+                    : new $ruleClass;
             }
+
             return $ruleCache[$key];
         };
 
@@ -184,12 +186,13 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
         // Register filex:min rule
         Validator::extend('filex_min', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
-            if (empty($parameters) || !is_numeric($parameters[0])) {
+            if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
             $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMin::class, (int) $parameters[0]);
@@ -197,12 +200,13 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
         // Register filex:max rule
         Validator::extend('filex_max', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
-            if (empty($parameters) || !is_numeric($parameters[0])) {
+            if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
             $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMax::class, (int) $parameters[0]);
@@ -210,6 +214,7 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
@@ -223,6 +228,7 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
@@ -233,6 +239,7 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
@@ -243,12 +250,13 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
         // Register filex:size rule
         Validator::extend('filex_size', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
-            if (empty($parameters) || !is_numeric($parameters[0])) {
+            if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
             $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexSize::class, (int) $parameters[0]);
@@ -256,6 +264,7 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
@@ -269,6 +278,7 @@ class FilexServiceProvider extends PackageServiceProvider
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
             });
+
             return $passes;
         });
 
@@ -284,41 +294,49 @@ class FilexServiceProvider extends PackageServiceProvider
         // Register custom error message replacers
         Validator::replacer('filex_mimes', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_mimes');
+
             return str_replace([':attribute', ':values'], [$attribute, implode(', ', $parameters)], $customMessage);
         });
 
         Validator::replacer('filex_min', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_min');
+
             return str_replace([':attribute', ':min'], [$attribute, $parameters[0]], $customMessage);
         });
 
         Validator::replacer('filex_max', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_max');
+
             return str_replace([':attribute', ':max'], [$attribute, $parameters[0]], $customMessage);
         });
 
         Validator::replacer('filex_size', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_size');
+
             return str_replace([':attribute', ':size'], [$attribute, $parameters[0]], $customMessage);
         });
 
         Validator::replacer('filex_mimetypes', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_mimetypes');
+
             return str_replace([':attribute', ':values'], [$attribute, implode(', ', $parameters)], $customMessage);
         });
 
         Validator::replacer('filex_dimensions', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_dimensions');
+
             return str_replace(':attribute', $attribute, $customMessage);
         });
 
         Validator::replacer('filex_image', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_image');
+
             return str_replace(':attribute', $attribute, $customMessage);
         });
 
         Validator::replacer('filex_file', function ($message, $attribute, $rule, $parameters) {
             $customMessage = $this->getValidationMessage('filex_file');
+
             return str_replace(':attribute', $attribute, $customMessage);
         });
     }
@@ -368,7 +386,7 @@ class FilexServiceProvider extends PackageServiceProvider
                 'invalid_file_path' => 'Invalid file path for :attribute. File deletion not allowed.',
             ];
 
-            return $defaults[$key] ?? "The :attribute field is invalid.";
+            return $defaults[$key] ?? 'The :attribute field is invalid.';
         }
 
         return $message;
@@ -383,9 +401,9 @@ class FilexServiceProvider extends PackageServiceProvider
         static $assetsChecked = false;
         static $configChecked = false;
 
-        if (!$assetsChecked) {
+        if (! $assetsChecked) {
             $assetsChecked = true;
-            if (!file_exists(public_path('vendor/filex/css/filex.css'))) {
+            if (! file_exists(public_path('vendor/filex/css/filex.css'))) {
                 Artisan::call('filex:install', [
                     '--only-assets' => true,
                     '--auto' => true,
@@ -394,9 +412,9 @@ class FilexServiceProvider extends PackageServiceProvider
             }
         }
 
-        if (!$configChecked) {
+        if (! $configChecked) {
             $configChecked = true;
-            if (!file_exists(config_path('filex.php'))) {
+            if (! file_exists(config_path('filex.php'))) {
                 Artisan::call('filex:install', [
                     '--only-config' => true,
                     '--auto' => true,

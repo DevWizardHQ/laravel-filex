@@ -2,22 +2,22 @@
 
 namespace DevWizard\Filex\Support;
 
-use DevWizard\Filex\Rules\FilexMimes;
-use DevWizard\Filex\Rules\FilexMin;
-use DevWizard\Filex\Rules\FilexMax;
 use DevWizard\Filex\Rules\FilexDimensions;
-use DevWizard\Filex\Rules\FilexImage;
 use DevWizard\Filex\Rules\FilexFile;
-use DevWizard\Filex\Rules\FilexSize;
+use DevWizard\Filex\Rules\FilexImage;
+use DevWizard\Filex\Rules\FilexMax;
+use DevWizard\Filex\Rules\FilexMimes;
 use DevWizard\Filex\Rules\FilexMimetypes;
+use DevWizard\Filex\Rules\FilexMin;
+use DevWizard\Filex\Rules\FilexSize;
 
 /**
  * Helper class for creating Filex validation rules with Laravel-style syntax
- * 
+ *
  * Usage examples:
  * FilexRule::mimes('pdf,jpeg,png')
  * FilexRule::min(100)
- * FilexRule::max(10000)  
+ * FilexRule::max(10000)
  * FilexRule::dimensions('min_width=100,min_height=200')
  * FilexRule::image()
  * FilexRule::file()
@@ -63,7 +63,7 @@ class FilexRule
      */
     public static function image(): FilexImage
     {
-        return new FilexImage();
+        return new FilexImage;
     }
 
     /**
@@ -71,7 +71,7 @@ class FilexRule
      */
     public static function file(): FilexFile
     {
-        return new FilexFile();
+        return new FilexFile;
     }
 
     /**
@@ -126,6 +126,7 @@ class FilexRule
     public static function parse(string $ruleString): array
     {
         $rules = explode('|', $ruleString);
+
         return self::rules($rules);
     }
 }
