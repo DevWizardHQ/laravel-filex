@@ -206,7 +206,7 @@ This directive automatically includes all required CSS, JavaScript, and route co
 
 ### Using the HasFilex Trait
 
-The `HasFilex` trait provides convenient methods for handling file uploads:
+The `HasFilex` trait provides a clean, simple API for file upload operations:
 
 ```php
 <?php
@@ -222,20 +222,14 @@ class DocumentController extends Controller
 
     public function store(Request $request)
     {
-        // Validate the request
+        // Validate the request with trait helper
         $request->validate([
             'title' => 'required|string',
-            'documents' => 'required|array',
-            'documents.*' => 'string|starts_with:temp/',
+            ...$this->getFilesValidationRules('documents', true), // Simple validation rules
         ]);
 
-        // Process uploaded files (moves from temp to permanent storage)
-        $filePaths = $this->processFiles(
-            $request,
-            'documents',                    // Field name
-            'documents/user-uploads',       // Target directory
-            'public'                        // Disk (optional)
-        );
+        // Upload multiple files - clean and simple
+        $filePaths = $this->moveFiles($request, 'documents', 'documents/user-uploads');
 
         // Create your model with the processed file paths
         Document::create([
@@ -247,46 +241,38 @@ class DocumentController extends Controller
         return redirect()->back()->with('success', 'Documents uploaded successfully!');
     }
 
-    public function update(Request $request, Document $document)
+    public function updateAvatar(Request $request, User $user)
     {
-        // Handle bulk file updates (replaces old files with new ones)
-        $newFilePaths = $this->handleBulkUpdate(
-            $request,
-            'documents',
-            $document->file_paths,      // Existing files
-            'documents/user-uploads',
-            'public'
-        );
+        // Validate single file upload
+        $request->validate([
+            ...$this->getFileValidationRules('avatar', true),
+        ]);
 
-        $document->update(['file_paths' => $newFilePaths]);
+        // Upload single file
+        $avatarPath = $this->moveFile($request, 'avatar', 'avatars');
 
-        return redirect()->back()->with('success', 'Documents updated successfully!');
+        $user->update(['avatar' => $avatarPath]);
+
+        return redirect()->back()->with('success', 'Avatar updated successfully!');
     }
 }
 ```
 
 ### Available HasFilex Methods
 
-#### Core Processing Methods
+#### Simple Upload Methods
 
--   `processFiles()` - Process multiple files from temp to permanent storage with bulk operations
--   `processSingleFile()` - Process a single file with enhanced error handling
--   `validateFiles()` - Validate temporary files with comprehensive security checks
--   `cleanupFiles()` - Clean up temporary files with batch processing
--   `handleBulkUpdate()` - Handle file updates with automatic cleanup of old files
+-   `moveFile()` - Move a single file from request to permanent storage
+-   `moveFiles()` - Move multiple files from request to permanent storage
 
-#### Utility Methods
+#### Validation Helpers
 
--   `getFilesInfo()` - Get detailed information about uploaded files including metadata
--   `getValidationRules()` - Generate validation rules for form requests dynamically
--   `prepareFileData()` - Prepare file data for database storage with sanitization
--   `formatFileSize()` - Format file sizes in human-readable format
--   `getUploadStats()` - Get upload statistics and analytics for monitoring
--   `moveFilesWithProgress()` - Move files with progress tracking callbacks
--   `validateFilesBatch()` - Batch validate multiple files efficiently
--   `getDisk()` - Get storage disk instance with caching
--   `getTempDisk()` - Get temporary storage disk instance
--   `cleanupExpired()` - Clean up expired temporary files
+-   `getFileValidationRules()` - Get validation rules for single file fields
+-   `getFilesValidationRules()` - Get validation rules for multiple file fields
+
+#### Cleanup
+
+-   `cleanupTempFiles()` - Clean up temporary files if validation fails
 
 ### Using the Service Directly
 
@@ -857,21 +843,13 @@ class DocumentController extends Controller
     {
         $tempPaths = $request->input('documents', []);
 
-        // Process files with progress tracking
-        $results = $this->moveFilesWithProgress(
-            $tempPaths,
-            'documents/bulk-upload',
-            'public',
-            function($completed, $total) {
-                // Progress callback
-                Log::info("Bulk upload progress: {$completed}/{$total}");
-            }
-        );
+        // Simple bulk upload
+        $documentPaths = $this->moveFiles($request, 'documents', 'documents/bulk-upload');
 
         return response()->json([
             'success' => true,
-            'processed' => count($results),
-            'files' => $results
+            'uploaded' => count($documentPaths),
+            'files' => $documentPaths
         ]);
     }
 }
@@ -1052,28 +1030,39 @@ public function renderFilexAssets(): string
 
 ### HasFilex Trait Methods
 
+The simplified trait provides these essential methods:
+
 ```php
-// File processing with enhanced performance
-protected function processFiles(Request $request, string $fieldName, string $targetDirectory, ?string $disk = null, bool $required = false): array
-protected function processSingleFile(Request $request, string $fieldName, string $targetDirectory, ?string $disk = null, bool $required = false): ?string
-protected function handleBulkUpdate(Request $request, string $fieldName, array $existingFiles, string $targetDirectory, ?string $disk = null): array
+// Simple upload methods
+protected function moveFile(Request $request, string $fieldName, string $directory, ?string $disk = null): ?string
+protected function moveFiles(Request $request, string $fieldName, string $directory, ?string $disk = null): array
 
-// Advanced validation and utilities
-protected function getValidationRules(string $fieldName, bool $required = false, array $additionalRules = []): array
-protected function validateFiles(array $tempPaths): array
-protected function validateFilesBatch(array $tempPaths): array
-protected function getFilesInfo(array $tempPaths): array
-protected function cleanupFiles(array $tempPaths): array
+// Validation helpers
+protected function getFileValidationRules(string $fieldName, bool $required = false): array
+protected function getFilesValidationRules(string $fieldName, bool $required = false): array
 
-// Progress tracking and monitoring
-protected function moveFilesWithProgress(array $tempPaths, string $targetDirectory, ?string $disk = null, ?callable $progressCallback = null): array
-protected function getUploadStats(array $tempPaths): array
-protected function prepareFileData(array $tempPaths, array $metadata = []): array
+// Cleanup utilities
+protected function cleanupTempFiles(array $tempPaths): int
+```
 
-// Storage utilities
-protected function getDisk(?string $disk = null): \Illuminate\Contracts\Filesystem\Filesystem
-protected function getTempDisk(): \Illuminate\Contracts\Filesystem\Filesystem
-protected function cleanupExpired(): array
+**Example Usage:**
+
+```php
+// Single file upload
+$avatarPath = $this->moveFile($request, 'avatar', 'avatars');
+
+// Multiple file upload
+$documentPaths = $this->moveFiles($request, 'documents', 'documents/uploads');
+
+// Get validation rules
+$rules = [
+    'title' => 'required|string',
+    ...$this->getFilesValidationRules('documents', true),
+];
+
+// Cleanup if validation fails
+$tempPaths = $request->input('documents', []);
+$cleaned = $this->cleanupTempFiles($tempPaths);
 ```
 
 ### FilexResult Class
