@@ -938,8 +938,18 @@ Laravel Filex supports multiple languages out of the box.
 
 ### Supported Languages
 
--   English (en)
--   Bengali (bn)
+-   🇺🇸 **English** (en) - Default
+-   🇧🇩 **Bengali** (bn) - Complete
+-   🇪🇸 **Spanish** (es) - Complete
+-   🇫🇷 **French** (fr) - Complete
+-   🇩🇪 **German** (de) - Complete
+-   🇸🇦 **Arabic** (ar) - Complete
+-   🇨🇳 **Chinese** (zh) - Complete
+-   🇷🇺 **Russian** (ru) - Complete
+-   🇮🇳 **Hindi** (hi) - Complete
+-   🇧🇷 **Portuguese** (pt) - Complete
+-   🇯🇵 **Japanese** (ja) - Complete
+-   🇮🇹 **Italian** (it) - Complete
 
 ### Publishing Language Files
 
@@ -1136,17 +1146,16 @@ This will publish the language files to `resources/lang/vendor/filex/`.
 
 -   🇺🇸 **English** (en) - Default
 -   🇧🇩 **Bengali** (bn) - Complete
--   🇪🇸 **Spanish** (es) - Coming soon
--   🇫🇷 **French** (fr) - Coming soon
--   🇩🇪 **German** (de) - Coming soon
--   🇨🇳 **Chinese** (zh) - Coming soon
--   🇸🇦 **Arabic** (ar) - Coming soon
--   🇷🇺 **Russian** (ru) - Coming soon
--   🇮🇳 **Hindi** (hi) - Coming soon
--   🇧🇷 **Portuguese** (pt) - Coming soon
--   🇯🇵 **Japanese** (ja) - Coming soon
--   🇮🇹 **Italian** (it) - Coming soon
--   🇹🇷 **Turkish** (tr) - Coming soon
+-   🇪🇸 **Spanish** (es) - Complete
+-   🇫🇷 **French** (fr) - Complete
+-   🇩🇪 **German** (de) - Complete
+-   �� **Arabic** (ar) - Complete
+-   �� **Chinese** (zh) - Complete
+-   🇷🇺 **Russian** (ru) - Complete
+-   🇮🇳 **Hindi** (hi) - Complete
+-   🇧🇷 **Portuguese** (pt) - Complete
+-   🇯🇵 **Japanese** (ja) - Complete
+-   🇮🇹 **Italian** (it) - Complete
 
 ### Customizing Messages
 

@@ -53,6 +53,19 @@ return [
     'timeout_error' => 'Upload timed out. Please try again or upload a smaller file.',
     'permission_error' => 'Server permission error. Please contact support.',
     'security_check_failed' => 'Security check failed. The file may contain malicious content or is not allowed.',
+    'no_files_selected' => 'No files were selected for upload. Please choose files.',
+    'too_many_files' => 'Too many files selected. Maximum allowed: :max files.',
+    'bulk_upload_completed' => 'Bulk upload completed successfully',
+    'invalid_file' => 'Invalid file provided',
+    'directory_deleted' => 'Directory deleted successfully',
+    'directory_delete_failed' => 'Failed to delete directory',
+    'directory_not_found' => 'Directory not found',
+    'invalid_directory' => 'Invalid directory path',
+    'security_validation_failed' => 'Security validation failed',
+    'rate_limit_exceeded' => 'Rate limit exceeded. Please try again later.',
+    'invalid_content_type' => 'Invalid content type',
+    'invalid_headers' => 'Invalid request headers',
+    'suspicious_activity_detected' => 'Suspicious activity detected',
 
     // Error Messages
     'errors' => [
@@ -72,6 +85,7 @@ return [
         'chunk_file_error' => 'Could not open chunk file: :file',
         'output_file_error' => 'Could not open output file for writing',
         'chunk_streaming_error' => 'Could not open files for chunk streaming',
+        'invalid_file_path' => 'Invalid file path',
     ],
 
 ];
