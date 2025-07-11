@@ -52,6 +52,7 @@ return [
     'memory_error' => 'File too large to process. Try uploading a smaller file.',
     'timeout_error' => 'Upload timed out. Please try again or upload a smaller file.',
     'permission_error' => 'Server permission error. Please contact support.',
+    'security_check_failed' => 'Security check failed. The file may contain malicious content or is not allowed.',
 
     // Error Messages
     'errors' => [

@@ -390,7 +390,7 @@
                     "X-CSRF-TOKEN": getCSRFToken(),
                 },
                 paramName: "file",
-                maxFilesize: config.maxSize,
+                maxFilesize: 999999, // Disable Dropzone's built-in file size validation - we'll handle it in custom validation
                 maxFiles: config.maxFiles,
                 acceptedFiles: config.accept,
                 addRemoveLinks: true,
@@ -415,8 +415,10 @@
                     config.messages.dictDefaultMessage ||
                     "Drop files here or click to upload",
                 dictFileTooBig:
-                    config.messages.dictFileTooBig ||
-                    "File is too big (:filesize MB). Max filesize: :maxfilesize MB.",
+                    (config.messages.dictFileTooBig ||
+                    "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
+                    .replace(':maxFilesize', config.maxSize)
+                    .replace(':maxfilesize', config.maxSize),
                 dictInvalidFileType:
                     config.messages.dictInvalidFileType ||
                     "You cannot upload files of this type.",
@@ -462,9 +464,13 @@
 
                         // Legacy validation for backward compatibility
                         if (file.size > config.maxSize * 1024 * 1024) {
-                            errors.push(
-                                `File is too large. Maximum size: ${config.maxSize}MB`
-                            );
+                            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                            const message = (config.messages.dictFileTooBig || 
+                                "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
+                                .replace(':filesize', fileSizeMB)
+                                .replace(':maxFilesize', config.maxSize)
+                                .replace(':maxfilesize', config.maxSize);
+                            errors.push(message);
                         }
 
                         if (
@@ -561,9 +567,14 @@
                                 if (ruleValue) {
                                     const maxSizeKB = parseInt(ruleValue);
                                     if (file.size > maxSizeKB * 1024) {
-                                        return `File too large. Maximum size: ${formatFileSize(
-                                            maxSizeKB * 1024
-                                        )}`;
+                                        const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                                        const maxSizeMB = (maxSizeKB / 1024).toFixed(2);
+                                        const message = (config.messages.dictFileTooBig || 
+                                            "File is too big (:filesize MB). Max filesize: :maxFilesize MB.")
+                                            .replace(':filesize', fileSizeMB)
+                                            .replace(':maxFilesize', maxSizeMB)
+                                            .replace(':maxfilesize', maxSizeMB);
+                                        return message;
                                     }
                                 }
                                 return null;
@@ -1373,8 +1384,13 @@
                             finalErrorMessage = 'Server error occurred during upload';
                         }
 
-                        // Show error notification only if enabled
-                        if (config.showErrorNotifications !== false) {
+                        // Show error notification only if enabled and not already shown by validation
+                        const isValidationError = finalErrorMessage.includes('File is too big') || 
+                                                 finalErrorMessage.includes('File too large') ||
+                                                 finalErrorMessage.includes('File type not allowed') ||
+                                                 finalErrorMessage.includes('validation failed');
+                        
+                        if (config.showErrorNotifications !== false && !isValidationError) {
                             showErrorMessage(`Upload failed for ${file.name}: ${finalErrorMessage}`, componentId, config.errorTimeout);
                         }
 
