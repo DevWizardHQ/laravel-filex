@@ -4,7 +4,14 @@
     "keywords": [
         "DevWizard",
         "laravel",
-        "laravel-filex"
+        "laravel-filex",
+        "file-upload",
+        "blade-component",
+        "async-upload",
+        "drag-drop",
+        "file-validation",
+        "chunked-upload",
+        "laravel-package"
     ],
     "homepage": "https://github.com/devwizardhq/laravel-filex",
     "license": "MIT",
@@ -16,7 +23,7 @@
         }
     ],
     "require": {
-        "php": "^8.4",
+        "php": "^8.1|^8.2|^8.3|^8.4",
         "spatie/laravel-package-tools": "^1.16",
         "illuminate/contracts": "^10.0||^11.0||^12.0"
     },
