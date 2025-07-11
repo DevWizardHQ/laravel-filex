@@ -4,6 +4,7 @@ namespace DevWizard\Filex\Tests\Unit;
 
 use DevWizard\Filex\Filex;
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\FilexResult;
 use DevWizard\Filex\Tests\TestCase;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
@@ -91,9 +92,10 @@ class FilexTest extends TestCase
         $targetDirectory = 'uploads';
         $results = $this->filex->moveFiles($tempPaths, $targetDirectory);
         
-        expect($results)->toBeArray();
+        expect($results)->toBeInstanceOf(FilexResult::class);
         expect($results)->toHaveCount(2);
         
+        // Test that we can access the results as an array
         foreach ($results as $result) {
             expect($result)->toBeArray();
             expect($result)->toHaveKeys(['success', 'tempPath']);
@@ -110,7 +112,7 @@ class FilexTest extends TestCase
         $targetDirectory = 'uploads';
         $results = $this->filex->moveFile($tempPath, $targetDirectory);
         
-        expect($results)->toBeArray();
+        expect($results)->toBeInstanceOf(FilexResult::class);
         expect($results)->toHaveCount(1);
         expect($results[0])->toHaveKeys(['success', 'tempPath']);
         expect($results[0]['success'])->toBeBool();
@@ -151,8 +153,8 @@ class FilexTest extends TestCase
     public function test_filex_handles_empty_arrays_gracefully()
     {
         $results = $this->filex->moveFiles([], 'uploads');
-        expect($results)->toBeArray();
-        expect($results)->toBeEmpty();
+        expect($results)->toBeInstanceOf(FilexResult::class);
+        expect($results)->toHaveCount(0);
     }
 
     public function test_filex_handles_null_disk_parameter()
@@ -162,7 +164,7 @@ class FilexTest extends TestCase
         
         // Should not throw an exception with null disk
         $results = $this->filex->moveFile($tempPath, 'uploads', null);
-        expect($results)->toBeArray();
+        expect($results)->toBeInstanceOf(FilexResult::class);
     }
 
     public function test_filex_with_custom_disk()
@@ -173,6 +175,6 @@ class FilexTest extends TestCase
         $tempPath = $tempFile->getPathname();
         
         $results = $this->filex->moveFile($tempPath, 'uploads', 'custom');
-        expect($results)->toBeArray();
+        expect($results)->toBeInstanceOf(FilexResult::class);
     }
 }

@@ -3,6 +3,7 @@
 namespace DevWizard\Filex;
 
 use DevWizard\Filex\Services\FilexService;
+use DevWizard\Filex\Support\FilexResult;
 
 /**
  * Laravel Filex - Modern File Upload Component
@@ -46,17 +47,19 @@ class Filex
     /**
      * Move temporary files to permanent storage
      */
-    public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): array
+    public function moveFiles(array $tempPaths, string $targetDirectory, ?string $disk = null): FilexResult
     {
-        return $this->service->moveFiles($tempPaths, $targetDirectory, $disk);
+        $results = $this->service->moveFiles($tempPaths, $targetDirectory, $disk);
+        return new FilexResult($results);
     }
 
     /**
      * Move a single temporary file to permanent storage
      */
-    public function moveFile(string $tempPath, string $targetDirectory, ?string $disk = null): array
+    public function moveFile(string $tempPath, string $targetDirectory, ?string $disk = null): FilexResult
     {
-        return $this->service->moveFiles([$tempPath], $targetDirectory, $disk);
+        $results = $this->service->moveFiles([$tempPath], $targetDirectory, $disk);
+        return new FilexResult($results);
     }
 
     /**
