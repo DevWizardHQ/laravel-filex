@@ -40,9 +40,9 @@ class ValidFileUpload implements ValidationRule
         ?int $maxFileSize = null,
         bool $strict = true
     ) {
-        $this->allowedExtensions = $allowedExtensions ?? config('filex.allowed_extensions', []);
-        $this->allowedMimeTypes = $allowedMimeTypes ?? config('filex.allowed_mime_types', []);
-        $this->maxFileSize = $maxFileSize ?? (config('filex.max_file_size', 10) * 1024 * 1024);
+        $this->allowedExtensions = $allowedExtensions ?? config('filex.validation.allowed_extensions', []);
+        $this->allowedMimeTypes = $allowedMimeTypes ?? config('filex.validation.allowed_mime_types', []);
+        $this->maxFileSize = $maxFileSize ?? (config('filex.storage.max_file_size', 10) * 1024 * 1024);
         $this->strict = $strict;
         $this->filexService = app(FilexService::class);
     }

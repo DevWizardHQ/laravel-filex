@@ -9,7 +9,7 @@ use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
  * Enhanced form request for file uploads with comprehensive validation
- * 
+ *
  * This form request provides:
  * - Multi-layered file validation
  * - Custom error handling
@@ -29,20 +29,20 @@ class FileUploadRequest extends FormRequest
      * Configure the request for specific file validation
      */
     public function configure(
-        string $fileField = 'file', 
-        ?array $allowedExtensions = null, 
+        string $fileField = 'file',
+        ?array $allowedExtensions = null,
         ?array $allowedMimeTypes = null,
         ?int $maxFileSize = null,
         bool $required = true,
         bool $multiple = false
     ): self {
         $this->fileField = $fileField;
-        $this->allowedExtensions = $allowedExtensions ?? config('filex.allowed_extensions', []);
-        $this->allowedMimeTypes = $allowedMimeTypes ?? config('filex.allowed_mime_types', []);
-        $this->maxFileSize = $maxFileSize ?? config('filex.max_file_size', 10);
+        $this->allowedExtensions = $allowedExtensions ?? config('filex.validation.allowed_extensions', []);
+        $this->allowedMimeTypes = $allowedMimeTypes ?? config('filex.validation.allowed_mime_types', []);
+        $this->maxFileSize = $maxFileSize ?? config('filex.storage.max_file_size', 10);
         $this->required = $required;
         $this->multiple = $multiple;
-        
+
         return $this;
     }
 
@@ -62,9 +62,9 @@ class FileUploadRequest extends FormRequest
     public function rules(): array
     {
         $fileField = $this->fileField ?? 'file';
-        
+
         $rules = [];
-        
+
         if ($this->multiple) {
             // Multiple file uploads (temp paths)
             $rules[$fileField] = $this->required ? ['required', 'array'] : ['nullable', 'array'];
@@ -110,7 +110,7 @@ class FileUploadRequest extends FormRequest
     public function messages(): array
     {
         $fileField = $this->fileField ?? 'file';
-        
+
         return [
             $fileField . '.required' => 'Please select a file to upload.',
             $fileField . '.file' => 'The uploaded item must be a valid file.',
@@ -226,9 +226,9 @@ class FileUploadRequest extends FormRequest
     {
         $validated = $this->validated();
         $fileField = $this->fileField ?? 'file';
-        
+
         $files = $validated[$fileField] ?? [];
-        
+
         if (!is_array($files)) {
             $files = [$files];
         }

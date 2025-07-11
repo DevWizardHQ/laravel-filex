@@ -16,7 +16,7 @@ class PerformanceMonitor
      */
     public static function startTimer(string $key): void
     {
-        if (config('filex.monitoring.enable_metrics', false)) {
+        if (config('filex.performance.monitoring.enable_metrics', false)) {
             self::$timers[$key] = microtime(true);
         }
     }
@@ -26,7 +26,7 @@ class PerformanceMonitor
      */
     public static function endTimer(string $key, array $context = []): float
     {
-        if (!config('filex.monitoring.enable_metrics', false)) {
+        if (!config('filex.performance.monitoring.enable_metrics', false)) {
             return 0.0;
         }
 
@@ -47,7 +47,7 @@ class PerformanceMonitor
      */
     public static function logMetric(string $key, float $value, array $context = []): void
     {
-        if (!config('filex.monitoring.enable_metrics', false)) {
+        if (!config('filex.performance.monitoring.enable_metrics', false)) {
             return;
         }
 
@@ -63,7 +63,7 @@ class PerformanceMonitor
         self::$metrics[] = $metric;
 
         // Log performance if enabled
-        if (config('filex.monitoring.log_performance', false)) {
+        if (config('filex.performance.monitoring.log_performance', false)) {
             Log::info('Filex Performance Metric', $metric);
         }
 
@@ -73,12 +73,12 @@ class PerformanceMonitor
         $cached[] = $metric;
 
         // Limit cache size
-        $maxEntries = config('filex.monitoring.max_log_entries', 1000);
+        $maxEntries = config('filex.performance.monitoring.max_log_entries', 1000);
         if (count($cached) > $maxEntries) {
             $cached = array_slice($cached, -$maxEntries);
         }
 
-        Cache::put($cacheKey, $cached, config('filex.optimization.cache_ttl', 3600));
+        Cache::put($cacheKey, $cached, config('filex.performance.optimization.cache_ttl', 3600));
     }
 
     /**

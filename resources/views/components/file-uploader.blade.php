@@ -88,7 +88,7 @@
     $hiddenInputName = $multiple ? $name . '[]' : $name;
 
     // Handle legacy prop names for backward compatibility
-    $maxSize = $maxSize ?? config('filex.max_file_size', 10);
+    $maxSize = $maxSize ?? config('filex.storage.max_file_size', 10);
     $autoProcess = $autoProcess ?? ($autoProcessQueue ?? true);
 
     // Process value prop - can be string, array, or null
@@ -102,9 +102,9 @@
     }
 
     // Get configuration values with fallbacks
-    $chunkSize = $chunkSize ?? config('filex.chunk.size', 1048576);
-    $retries = $retries ?? config('filex.chunk.max_retries', 3);
-    $timeout = $timeout ?? config('filex.chunk.timeout', 30000);
+    $chunkSize = $chunkSize ?? config('filex.upload.chunk.size', 1048576);
+    $retries = $retries ?? config('filex.upload.chunk.max_retries', 3);
+    $timeout = $timeout ?? config('filex.upload.chunk.timeout', 30000);
     $parallelUploads = $parallelUploads ?? config('filex.performance.parallel_uploads', 2);
 
     // Process validation rules and build frontend validation config

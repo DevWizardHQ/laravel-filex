@@ -20,7 +20,7 @@ class ConfigHelper
      */
     public static function getDefaultDisk(): string
     {
-        return self::get('default_disk', config('filesystems.default', 'public'));
+        return self::get('storage.disks.default', config('filesystems.default', 'public'));
     }
 
     /**
@@ -28,7 +28,7 @@ class ConfigHelper
      */
     public static function getTempDisk(): string
     {
-        return self::get('temp_disk', 'local');
+        return self::get('storage.disks.temp', 'local');
     }
 
     /**
@@ -36,7 +36,7 @@ class ConfigHelper
      */
     public static function getMaxFileSize(): int
     {
-        return self::get('max_file_size', 10) * 1024 * 1024;
+        return self::get('storage.max_file_size', 10) * 1024 * 1024;
     }
 
     /**
@@ -44,7 +44,7 @@ class ConfigHelper
      */
     public static function getTempExpiryHours(): int
     {
-        return self::get('temp_expiry_hours', 24);
+        return self::get('storage.temp_expiry_hours', 24);
     }
 
     /**
@@ -52,7 +52,7 @@ class ConfigHelper
      */
     public static function getAllowedExtensions(): array
     {
-        return self::get('allowed_extensions', []);
+        return self::get('validation.allowed_extensions', []);
     }
 
     /**
@@ -60,7 +60,7 @@ class ConfigHelper
      */
     public static function getAllowedMimeTypes(): array
     {
-        return self::get('allowed_mime_types', []);
+        return self::get('validation.allowed_mime_types', []);
     }
 
     /**
@@ -68,7 +68,7 @@ class ConfigHelper
      */
     public static function isCleanupEnabled(): bool
     {
-        return self::get('cleanup.enabled', true);
+        return self::get('system.cleanup.enabled', true);
     }
 
     /**
@@ -76,7 +76,7 @@ class ConfigHelper
      */
     public static function getCleanupSchedule(): string
     {
-        return self::get('cleanup.schedule', 'daily');
+        return self::get('system.cleanup.schedule', 'daily');
     }
 
     /**
@@ -116,7 +116,7 @@ class ConfigHelper
      */
     public static function getRateLimitMaxAttempts(): int
     {
-        return self::get('rate_limit.max_attempts', 60);
+        return self::get('performance.rate_limiting.ip_limit', 50);
     }
 
     /**
@@ -124,6 +124,6 @@ class ConfigHelper
      */
     public static function getRateLimitDecayMinutes(): int
     {
-        return self::get('rate_limit.decay_minutes', 1);
+        return self::get('performance.rate_limiting.time_window', 3600) / 60;
     }
 }

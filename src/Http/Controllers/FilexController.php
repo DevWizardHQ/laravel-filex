@@ -465,7 +465,7 @@ class FilexController extends Controller
                 'max_execution_time' => ini_get('max_execution_time'),
             ],
             'app_settings' => [
-                'max_file_size' => ConfigHelper::get('max_file_size') . 'MB',
+                'max_file_size' => ConfigHelper::getMaxFileSize() / (1024 * 1024) . 'MB',
                 'performance_memory_limit' => ConfigHelper::get('performance.memory_limit'),
                 'performance_time_limit' => ConfigHelper::get('performance.time_limit'),
                 'temp_disk' => ConfigHelper::getTempDisk(),
@@ -551,7 +551,7 @@ class FilexController extends Controller
                 $files = [$files];
             }
 
-            $maxFiles = ConfigHelper::get('bulk.max_files', 10);
+            $maxFiles = ConfigHelper::get('performance.batch_size', 10);
             if (count($files) > $maxFiles) {
                 return $this->errorResponse(
                     __('filex::translations.too_many_files', ['max' => $maxFiles]),
@@ -560,7 +560,7 @@ class FilexController extends Controller
             }
 
             $results = [];
-            $batchSize = ConfigHelper::get('bulk.batch_size', 3);
+            $batchSize = ConfigHelper::get('performance.batch_size', 3);
             $batches = array_chunk($files, $batchSize);
 
             foreach ($batches as $batchIndex => $batch) {
@@ -851,15 +851,15 @@ class FilexController extends Controller
             'upload_status' => 'available',
             'limits' => [
                 'max_file_size_mb' => $limits['effective_limit_mb'],
-                'max_chunk_size' => ConfigHelper::get('chunk.size', 1048576),
+                'max_chunk_size' => ConfigHelper::get('upload.chunk.size', 1048576),
                 'max_parallel_uploads' => ConfigHelper::get('performance.parallel_uploads', 2),
-                'supported_formats' => ConfigHelper::get('allowed_extensions', []),
+                'supported_formats' => ConfigHelper::getAllowedExtensions(),
                 'chunked_upload_threshold_mb' => round(ConfigHelper::get('performance.chunk_threshold', 50 * 1024 * 1024) / (1024 * 1024), 2)
             ],
             'rate_limiting' => [
-                'enabled' => ConfigHelper::get('rate_limiting.enabled', false),
-                'requests_per_minute' => ConfigHelper::get('rate_limiting.ip_limit', 50),
-                'user_requests_per_hour' => ConfigHelper::get('rate_limiting.user_limit', 100)
+                'enabled' => ConfigHelper::get('performance.rate_limiting.enabled', false),
+                'requests_per_minute' => ConfigHelper::get('performance.rate_limiting.ip_limit', 50),
+                'user_requests_per_hour' => ConfigHelper::get('performance.rate_limiting.user_limit', 100)
             ],
             'server_status' => [
                 'disk_space_available' => $this->checkDiskSpace(),

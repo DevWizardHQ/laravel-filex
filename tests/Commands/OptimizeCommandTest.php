@@ -79,8 +79,8 @@ class OptimizeCommandTest extends TestCase
     {
         Config::set('filex.performance.batch_size', 15); // Too high
         Config::set('filex.performance.parallel_uploads', 5); // Too high
-        Config::set('filex.optimization.enable_caching', false); // Should be enabled
-        Config::set('filex.monitoring.enable_metrics', false); // Should be enabled
+        Config::set('filex.performance.optimization.enable_caching', false); // Should be enabled
+        Config::set('filex.performance.monitoring.enable_metrics', false); // Should be enabled
 
         $this->artisan('filex:optimize', ['--config-check' => true])
             ->expectsOutput('🚀 Optimizing Laravel Filex...')
@@ -93,8 +93,8 @@ class OptimizeCommandTest extends TestCase
     {
         Config::set('filex.performance.batch_size', 5); // Good
         Config::set('filex.performance.parallel_uploads', 2); // Good
-        Config::set('filex.optimization.enable_caching', true); // Good
-        Config::set('filex.monitoring.enable_metrics', true); // Good
+        Config::set('filex.performance.optimization.enable_caching', true); // Good
+        Config::set('filex.performance.monitoring.enable_metrics', true); // Good
 
         $this->artisan('filex:optimize', ['--config-check' => true])
             ->expectsOutput('🚀 Optimizing Laravel Filex...')

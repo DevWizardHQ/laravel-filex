@@ -172,7 +172,7 @@ class FilexService
             $metadataPath = $tempPath . '.meta';
             $metadataContent = json_encode(array_merge($metadata, [
                 'created_at' => now()->toISOString(),
-                'expires_at' => now()->addHours(ConfigHelper::get('temp_expiry_hours', 24))->toISOString()
+                'expires_at' => now()->addHours(ConfigHelper::getTempExpiryHours())->toISOString()
             ]));
 
             return $tempDisk->put($metadataPath, $metadataContent);
@@ -320,7 +320,7 @@ class FilexService
                 } else {
                     // File without metadata or expired metadata, check file age
                     $fileTime = $tempDisk->lastModified($file);
-                    $maxAge = ConfigHelper::get('temp_expiry_hours', 24) * 3600;
+                    $maxAge = ConfigHelper::getTempExpiryHours() * 3600;
 
                     if (time() - $fileTime > $maxAge) {
                         if ($this->deleteTemp($file)) {
@@ -360,7 +360,7 @@ class FilexService
     {
         if (self::$runtimeCaches['allowedExtensions'] === null) {
             self::$runtimeCaches['allowedExtensions'] = array_flip(
-                ConfigHelper::get('allowed_extensions', [])
+                ConfigHelper::getAllowedExtensions()
             );
         }
 
@@ -374,7 +374,7 @@ class FilexService
     {
         if (self::$runtimeCaches['allowedMimeTypes'] === null) {
             self::$runtimeCaches['allowedMimeTypes'] = array_flip(
-                ConfigHelper::get('allowed_mime_types', [])
+                ConfigHelper::getAllowedMimeTypes()
             );
         }
 

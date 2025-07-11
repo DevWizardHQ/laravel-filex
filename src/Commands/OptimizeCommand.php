@@ -111,8 +111,8 @@ class OptimizeCommand extends Command
         // Check Filex config
         $batchSize = config('filex.performance.batch_size', 5);
         $parallelUploads = config('filex.performance.parallel_uploads', 2);
-        $cachingEnabled = config('filex.optimization.enable_caching', true);
-        $metricsEnabled = config('filex.monitoring.enable_metrics', false);
+        $cachingEnabled = config('filex.performance.optimization.enable_caching', true);
+        $metricsEnabled = config('filex.performance.monitoring.enable_metrics', false);
 
         $this->line("\nFilex configuration:");
         $this->line("  Batch size: {$batchSize}");
@@ -130,11 +130,11 @@ class OptimizeCommand extends Command
         }
 
         if (!$cachingEnabled) {
-            $recommendations[] = "Enable caching for better performance: filex.optimization.enable_caching = true";
+            $recommendations[] = "Enable caching for better performance: filex.performance.optimization.enable_caching = true";
         }
 
         if (!$metricsEnabled) {
-            $recommendations[] = "Enable metrics for performance monitoring: filex.monitoring.enable_metrics = true";
+            $recommendations[] = "Enable metrics for performance monitoring: filex.performance.monitoring.enable_metrics = true";
         }
 
         if (!empty($recommendations)) {

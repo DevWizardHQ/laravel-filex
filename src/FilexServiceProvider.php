@@ -10,6 +10,7 @@ use DevWizard\Filex\Commands\InstallCommand;
 use DevWizard\Filex\Commands\OptimizeCommand;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Services\FileRuleService;
+use DevWizard\Filex\Support\ConfigHelper;
 use DevWizard\Filex\Facades\FileRule;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Validator;
@@ -100,9 +101,9 @@ class FilexServiceProvider extends PackageServiceProvider
     protected function bootConsoleFeatures(): void
     {
         // Add cleanup to scheduler if enabled
-        if (config('filex.cleanup.enabled', true)) {
+        if (ConfigHelper::isCleanupEnabled()) {
             $this->app->afterResolving(Schedule::class, function ($schedule) {
-                $frequency = config('filex.cleanup.schedule', 'daily');
+                $frequency = ConfigHelper::getCleanupSchedule();
                 $command = $schedule->command('filex:cleanup-temp --force');
 
                 switch ($frequency) {
@@ -378,20 +379,30 @@ class FilexServiceProvider extends PackageServiceProvider
      */
     protected function autoPublishAssets(): void
     {
-        if (!file_exists(public_path('vendor/filex/css/filex.css'))) {
-            Artisan::call('filex:install', [
-                '--only-assets' => true,
-                '--auto' => true,
-                '--force' => true,
-            ]);
+        // Use static variables to prevent repeated checks and operations
+        static $assetsChecked = false;
+        static $configChecked = false;
+
+        if (!$assetsChecked) {
+            $assetsChecked = true;
+            if (!file_exists(public_path('vendor/filex/css/filex.css'))) {
+                Artisan::call('filex:install', [
+                    '--only-assets' => true,
+                    '--auto' => true,
+                    '--force' => true,
+                ]);
+            }
         }
 
-        if (!file_exists(config_path('filex.php'))) {
-            Artisan::call('filex:install', [
-                '--only-config' => true,
-                '--auto' => true,
-                '--force' => true,
-            ]);
+        if (!$configChecked) {
+            $configChecked = true;
+            if (!file_exists(config_path('filex.php'))) {
+                Artisan::call('filex:install', [
+                    '--only-config' => true,
+                    '--auto' => true,
+                    '--force' => true,
+                ]);
+            }
         }
     }
 }
