@@ -82,7 +82,7 @@ Filex uses a temp-first upload pattern. This is NOT optional — it is how the p
    />
    ```
 
-7. **NEVER add `enctype="multipart/form-data"`** to the form tag. Filex handles uploads via AJAX before form submission. The form only submits string paths. However, including it causes no harm.
+7. **`enctype="multipart/form-data"` is not required** — Filex handles uploads via AJAX before form submission, so the form only submits string paths. Adding it is harmless but unnecessary.
 
 8. **For image uploads, use dimension constraints** when the design requires specific sizes:
    ```blade
@@ -106,15 +106,9 @@ Filex uses a temp-first upload pattern. This is NOT optional — it is how the p
     }
     ```
 
-10. **ALWAYS validate temp paths** before moving. Use either basic validation or `ValidFileUpload` rules:
+10. **ALWAYS validate temp paths with `ValidFileUpload` rules** before moving. Do NOT rely on a simple `starts_with:temp/` check — it is vulnerable to path traversal attacks (e.g., `temp/../../logs/laravel.log`):
 
     ```php
-    // Option A: Basic validation (minimum)
-    $request->validate([
-        'avatar' => ['required', 'string', 'starts_with:temp/'],
-    ]);
-
-    // Option B: Full security validation (recommended for production)
     use DevWizard\Filex\Rules\ValidFileUpload;
 
     $request->validate([
@@ -127,7 +121,7 @@ Filex uses a temp-first upload pattern. This is NOT optional — it is how the p
     ```php
     $request->validate([
         'documents' => ['required', 'array', 'max:10'],
-        'documents.*' => ['string', 'starts_with:temp/'],
+        'documents.*' => [ValidFileUpload::forDocuments(maxSizeMB: 10)],
     ]);
     ```
 
@@ -338,11 +332,11 @@ public function update(Request $request, Post $post)
 
 | Method | Allowed Types | Default Max |
 |--------|--------------|-------------|
-| `ValidFileUpload::forImages(5)` | jpeg, png, gif, webp, svg, bmp, ico | 5 MB |
-| `ValidFileUpload::forDocuments(10)` | pdf, doc, docx, xls, xlsx, ppt, pptx, txt, csv | 10 MB |
+| `ValidFileUpload::forImages(5)` | jpg, jpeg, png, gif, webp | 5 MB |
+| `ValidFileUpload::forDocuments(10)` | pdf, doc, docx, xls, xlsx, ppt, pptx, txt, rtf | 10 MB |
 | `FileRule::forArchives(50)` | zip, rar, 7z, tar, gz | 50 MB |
-| `FileRule::forAudio(20)` | mp3, wav, ogg, flac, aac | 20 MB |
-| `FileRule::forVideo(100)` | mp4, avi, mkv, mov, wmv, webm | 100 MB |
+| `FileRule::forAudio(20)` | mp3, wav, flac, ogg | 20 MB |
+| `FileRule::forVideo(100)` | mp4, avi, mov, mkv | 100 MB |
 | `FileRule::forType('csv', 'text/csv', 10)` | Custom single type | Custom |
 | `FileRule::custom([exts], [mimes], maxMB)` | Custom multiple types | Custom |
 
@@ -408,7 +402,7 @@ php artisan filex:info                  # Package info
 | Storing `temp/` paths in database | ALWAYS `moveFile()` first, store the returned permanent path |
 | Using `$request->file('avatar')` | Filex fields are strings, use `$request->avatar` or `moveFile($request, 'avatar', ...)` |
 | Using Laravel's `store()` / `storeAs()` on Filex fields | Use `$this->moveFile()` or `Filex::moveFile()` |
-| Skipping validation on temp paths | ALWAYS validate with `starts_with:temp/` or `ValidFileUpload` |
+| Skipping validation on temp paths | ALWAYS validate with `ValidFileUpload` rules to prevent path traversal |
 | Omitting `@filexAssets` in layout | Component JS/CSS won't load, uploads will silently fail |
 | No `mimes` restriction on uploader | ALWAYS set `mimes` to prevent unrestricted file types |
 | Manual `Storage::move()` on temp files | Use `HasFilex::moveFile()` — it handles metadata, security, and atomic writes |
