@@ -2,6 +2,16 @@
 
 All notable changes to `laravel-filex` will be documented in this file.
 
+## v1.3.0 - 2026-04-12
+
+### What's Changed
+
+* chore(deps): Bump ramsey/composer-install from 3 to 4 by @dependabot[bot] in https://github.com/DevWizardHQ/laravel-filex/pull/9
+* chore(deps): Bump dependabot/fetch-metadata from 2.5.0 to 3.0.0 by @dependabot[bot] in https://github.com/DevWizardHQ/laravel-filex/pull/10
+* Add Laravel 13 support by @iqbalhasandev in https://github.com/DevWizardHQ/laravel-filex/pull/11
+
+**Full Changelog**: https://github.com/DevWizardHQ/laravel-filex/compare/v1.2.0...v1.3.0
+
 ## v1.2.0 - 2026-03-10
 
 ### What's Changed
@@ -24,27 +34,33 @@ All notable changes to `laravel-filex` will be documented in this file.
 #### Added
 
 - 🔐 **File Visibility Control**: Added support for controlling file visibility when moving from temporary to permanent storage
-    - Files can be set as `public` (accessible by anyone with URL) or `private` (only accessible through authorized requests)
-    - Default visibility is configurable via `FILEX_DEFAULT_VISIBILITY` environment variable (defaults to `public`)
-    - Enhanced `moveFiles()` and `moveFile()` methods in FilexService to accept optional `$visibility` parameter
-    - Updated Filex facade with visibility support and convenience methods:
-        - `moveFileWithVisibility()` - Move single file with specific visibility
-        - `moveFilesWithVisibility()` - Move multiple files with specific visibility
-        - `moveFilePublic()` - Move single file as public
-        - `moveFilePrivate()` - Move single file as private
-        - `moveFilesPublic()` - Move multiple files as public
-        - `moveFilesPrivate()` - Move multiple files as private
-        
-    - Enhanced HasFilex trait with visibility control methods:
-        - `moveFileWithVisibility()` - Move single file with specific visibility
-        - `moveFilesWithVisibility()` - Move multiple files with specific visibility
-        - `moveFilePublic()` - Convenience method for public files
-        - `moveFilePrivate()` - Convenience method for private files
-        - `moveFilesPublic()` - Convenience method for multiple public files
-        - `moveFilesPrivate()` - Convenience method for multiple private files
-        
-    - Backward compatibility maintained - existing code continues to work without changes
+  - Files can be set as `public` (accessible by anyone with URL) or `private` (only accessible through authorized requests)
     
+  - Default visibility is configurable via `FILEX_DEFAULT_VISIBILITY` environment variable (defaults to `public`)
+    
+  - Enhanced `moveFiles()` and `moveFile()` methods in FilexService to accept optional `$visibility` parameter
+    
+  - Updated Filex facade with visibility support and convenience methods:
+    
+    - `moveFileWithVisibility()` - Move single file with specific visibility
+    - `moveFilesWithVisibility()` - Move multiple files with specific visibility
+    - `moveFilePublic()` - Move single file as public
+    - `moveFilePrivate()` - Move single file as private
+    - `moveFilesPublic()` - Move multiple files as public
+    - `moveFilesPrivate()` - Move multiple files as private
+    
+  - Enhanced HasFilex trait with visibility control methods:
+    
+    - `moveFileWithVisibility()` - Move single file with specific visibility
+    - `moveFilesWithVisibility()` - Move multiple files with specific visibility
+    - `moveFilePublic()` - Convenience method for public files
+    - `moveFilePrivate()` - Convenience method for private files
+    - `moveFilesPublic()` - Convenience method for multiple public files
+    - `moveFilesPrivate()` - Convenience method for multiple private files
+    
+  - Backward compatibility maintained - existing code continues to work without changes
+    
+  
 
 #### Configuration
 
