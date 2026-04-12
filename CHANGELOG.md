@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-filex` will be documented in this file.
 
+## v1.3.2 - 2026-04-12
+
+### What's Changed
+
+* fix: add pull_request triggers to CI workflows by @iqbalhasandev in https://github.com/DevWizardHQ/laravel-filex/pull/13
+
+**Full Changelog**: https://github.com/DevWizardHQ/laravel-filex/compare/v1.3.1...v1.3.2
+
 ## v1.3.1 - 2026-04-12
 
 ### What's Changed
