@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-filex` will be documented in this file.
 
+## v1.3.1 - 2026-04-12
+
+### What's Changed
+
+* Fix workflows triggering on tag pushes by @iqbalhasandev in https://github.com/DevWizardHQ/laravel-filex/pull/12
+
+**Full Changelog**: https://github.com/DevWizardHQ/laravel-filex/compare/v1.3.0...v1.3.1
+
 ## v1.3.0 - 2026-04-12
 
 ### What's Changed
