@@ -2,6 +2,7 @@
 
 namespace DevWizard\Filex\Services;
 
+use Illuminate\Cache\RedisStore;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -112,8 +113,8 @@ class FilexCacheService
     {
         try {
             // Get all cache keys (this is driver-dependent)
-            if (Cache::getStore() instanceof \Illuminate\Cache\RedisStore) {
-                /** @var \Illuminate\Cache\RedisStore $store */
+            if (Cache::getStore() instanceof RedisStore) {
+                /** @var RedisStore $store */
                 $store = Cache::getStore();
                 $redis = $store->connection();
                 $keys = $redis->keys(self::CACHE_PREFIX.'*');
@@ -150,8 +151,8 @@ class FilexCacheService
             ];
 
             // Add driver-specific stats if available
-            if (Cache::getStore() instanceof \Illuminate\Cache\RedisStore) {
-                /** @var \Illuminate\Cache\RedisStore $store */
+            if (Cache::getStore() instanceof RedisStore) {
+                /** @var RedisStore $store */
                 $store = Cache::getStore();
                 $redis = $store->connection();
                 $keys = $redis->keys(self::CACHE_PREFIX.'*');
