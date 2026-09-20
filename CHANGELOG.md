@@ -2,6 +2,17 @@
 
 All notable changes to `laravel-filex` will be documented in this file.
 
+## v1.3.3 - 2026-09-20
+
+Maintenance release. No user-facing behaviour changes.
+
+### Dependencies
+
+- Allow Pest 5 alongside 3 and 4. The constraint is additive rather than a replacement, because Pest 5 requires PHP `^8.3` while the CI matrix still covers 8.2.
+- `actions/checkout` 6 → 7.
+
+Includes the Pint formatting the newer toolchain applies. 144 tests pass, PHPStan clean.
+
 ## v1.3.2 - 2026-04-12
 
 ### What's Changed
