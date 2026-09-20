@@ -7,6 +7,14 @@ use DevWizard\Filex\Commands\FilexCommand;
 use DevWizard\Filex\Commands\InstallCommand;
 use DevWizard\Filex\Commands\OptimizeCommand;
 use DevWizard\Filex\Facades\FileRule;
+use DevWizard\Filex\Rules\FilexDimensions;
+use DevWizard\Filex\Rules\FilexFile;
+use DevWizard\Filex\Rules\FilexImage;
+use DevWizard\Filex\Rules\FilexMax;
+use DevWizard\Filex\Rules\FilexMimes;
+use DevWizard\Filex\Rules\FilexMimetypes;
+use DevWizard\Filex\Rules\FilexMin;
+use DevWizard\Filex\Rules\FilexSize;
 use DevWizard\Filex\Services\FileRuleService;
 use DevWizard\Filex\Services\FilexService;
 use DevWizard\Filex\Support\ConfigHelper;
@@ -181,7 +189,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters)) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMimes::class, implode(',', $parameters));
+            $rule = $createCachedRule(FilexMimes::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -195,7 +203,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMin::class, (int) $parameters[0]);
+            $rule = $createCachedRule(FilexMin::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -209,7 +217,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMax::class, (int) $parameters[0]);
+            $rule = $createCachedRule(FilexMax::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -223,7 +231,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters)) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexDimensions::class, implode(',', $parameters));
+            $rule = $createCachedRule(FilexDimensions::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -234,7 +242,7 @@ class FilexServiceProvider extends PackageServiceProvider
 
         // Register filex:image rule
         Validator::extend('filex_image', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexImage::class);
+            $rule = $createCachedRule(FilexImage::class);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -245,7 +253,7 @@ class FilexServiceProvider extends PackageServiceProvider
 
         // Register filex:file rule
         Validator::extend('filex_file', function ($attribute, $value, $parameters, $validator) use ($createCachedRule) {
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexFile::class);
+            $rule = $createCachedRule(FilexFile::class);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -259,7 +267,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters) || ! is_numeric($parameters[0])) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexSize::class, (int) $parameters[0]);
+            $rule = $createCachedRule(FilexSize::class, (int) $parameters[0]);
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;
@@ -273,7 +281,7 @@ class FilexServiceProvider extends PackageServiceProvider
             if (empty($parameters)) {
                 return false;
             }
-            $rule = $createCachedRule(\DevWizard\Filex\Rules\FilexMimetypes::class, implode(',', $parameters));
+            $rule = $createCachedRule(FilexMimetypes::class, implode(',', $parameters));
             $passes = true;
             $rule->validate($attribute, $value, function ($message) use (&$passes) {
                 $passes = false;

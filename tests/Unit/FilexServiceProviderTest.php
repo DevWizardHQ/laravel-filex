@@ -2,6 +2,10 @@
 
 namespace DevWizard\Filex\Tests\Unit;
 
+use DevWizard\Filex\Commands\CleanupTempFilesCommand;
+use DevWizard\Filex\Commands\FilexCommand;
+use DevWizard\Filex\Commands\InstallCommand;
+use DevWizard\Filex\Commands\OptimizeCommand;
 use DevWizard\Filex\Filex;
 use DevWizard\Filex\FilexServiceProvider;
 use DevWizard\Filex\Services\FileRuleService;
@@ -113,10 +117,10 @@ class FilexServiceProviderTest extends TestCase
     {
         // Test that commands can be resolved from the container
         $commands = [
-            \DevWizard\Filex\Commands\FilexCommand::class,
-            \DevWizard\Filex\Commands\CleanupTempFilesCommand::class,
-            \DevWizard\Filex\Commands\InstallCommand::class,
-            \DevWizard\Filex\Commands\OptimizeCommand::class,
+            FilexCommand::class,
+            CleanupTempFilesCommand::class,
+            InstallCommand::class,
+            OptimizeCommand::class,
         ];
 
         foreach ($commands as $commandClass) {
